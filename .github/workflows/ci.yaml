@@ -5,6 +5,7 @@ on:
     branches:
       - public-server
       - api9
+      - dev
 
 jobs:
   run_server_binary:
