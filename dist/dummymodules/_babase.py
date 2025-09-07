@@ -291,9 +291,6 @@ class Env:
     :attr:`~babase.App.env` attr on the :class:`~babase.App` class.
     """
 
-    #: Is this build targeting an Android based OS?
-    android: bool
-
     #: The app's api version.
     #:
     #: Only Python modules and packages associated with the current API
@@ -304,11 +301,23 @@ class Env:
     #: accordingly and set to target the newer API version number.
     api_version: int
 
-    #: Whether the app is targeting an arcade-centric experience.
-    arcade: bool
-
     #: Architecture we are running on.
     arch: bacommon.app.AppArchitecture
+
+    #: A directory where the app can place files guaranteed to exist
+    #: as long as the app remains running (and likely longer). The app
+    #: must be prepared for the possibility of any or all files here
+    #: disappearing between runs, though the conditions for and likelyhood
+    #: of this occurring varies between platforms. Note that debug builds
+    #: may explicitly delete random cache files at launch to exercise this
+    #: constraint.
+    cache_directory: str
+
+    #: Path of the directory where the app's config file and other
+    #: user data live. By default, :attr:`cache_directory` and
+    #: :attr:`python_directory_user` are located within this directory as
+    #: well (though that varies per platform).
+    config_directory: str
 
     #: Where the app's config file is stored on disk.
     config_file_path: str
@@ -316,15 +325,12 @@ class Env:
     #: Where bundled static app data lives.
     data_directory: str
 
-    #: Whether the app is running in debug mode.
+    #: Whether this is a debug build of the app.
     #:
-    #: Debug builds generally run substantially slower than non-debug
+    #: Debug builds generally run substantially slower than release
     #: builds due to compiler optimizations being disabled and extra
-    #: checks being run.
-    debug: bool
-
-    #: Whether the app is targeting a demo experience.
-    demo: bool
+    #: runtime checks being enabled.
+    debug_build: bool
 
     #: Human readable name of the device running this app.
     device_name: str
@@ -352,14 +358,23 @@ class Env:
     #: This is the opposite of `gui`.
     headless: bool
 
-    #: Locale tag for the current environment in BCP 47 or POSIX localization
-    #: string form; will be something like ``en-US`` or ``en_US.UTF-8``.
+    #: Raw string locale tag for the current environment in BCP 47 or POSIX
+    #: localization string form; will be something like ``en-US`` or
+    #: ``en_US.UTF-8``. Most things needing locale functionality should look
+    #: at :class:`~babase.LocaleSubsystem`.
     locale_tag: str
+
+    #: Whether this is a monolithic build of the app.
+    #:
+    #: Monolithic builds contain and manage their own embedded Python
+    #: interpreter. Modular builds, on the other hand, consist of binary
+    #: Python modules used with a standalone Python interpreter.
+    monolithic_build: bool
 
     #: Platform-specific os version string provided by the native layer.
     #:
-    #: Note that more detailed OS information may be available through
-    #: the Python :mod:`platform` module.
+    #: Note that more detailed OS information is generally available through
+    #: the stdlib :mod:`platform` module.
     os_version: str
 
     #: Platform we are running on.
@@ -393,13 +408,7 @@ class Env:
     #: in case it is used again.
     supports_soft_quit: bool
 
-    #: Whether the app is running in test mode.
-    #:
-    #: Test mode enables extra checks and features that are useful for
-    #: release testing but which do not slow the game down significantly.
-    test: bool
-
-    #: Whether the app is targeting a TV-centric experience.
+    #: Whether the app is currently running on a TV.
     tv: bool
 
     #: App variant we are running.
@@ -407,7 +416,6 @@ class Env:
 
     #: Whether the app is currently running in VR.
     vr: bool
-    pass
 
 
 class FeatureSetData:
@@ -581,6 +589,12 @@ def app_is_active() -> bool:
     return bool()
 
 
+def apply_app_config() -> None:
+    """:meta private:"""
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
 def appname() -> str:
     """Return current app name (all lowercase)."""
     # This is a dummy stub; the actual implementation is native code.
@@ -645,6 +659,34 @@ def asset_loads_allowed() -> bool:
     """:meta private:"""
     # This is a dummy stub; the actual implementation is native code.
     return bool()
+
+
+def atexit(call: Callable[[], None]) -> None:
+    """Register a synchronous call to run just before the engine shuts down Python.
+
+    Most shutdown functionality should instead use the app's :meth:`~babase.App.add_shutdown_task()` functionality, which runs
+    earlier in the shutdown sequence and operates asynchronousy. This call
+    is only for components that need to shut down at the very end or in a
+    specific order.
+
+    Currently this only works in monolithic app builds (see
+    :attr:`~babase.Env.monolithic_build`).
+
+    This is similar to Python's standard :func:`atexit.register()`
+    - calls are run on the main thread in the reverse order they were
+    registered. The key difference is that this runs *before* Python blocks
+    waiting for all non-daemon threads to exit, allowing this to be used
+    to gracefully spin down such threads.
+
+    It is highly encouraged on to avoid daemon threads on monolithic builds
+    and to instead use this or other functionality to kill your thread.
+    This avoids the inherent danger in daemon threads of accessing Python
+    state during or after interpreter shutdown. Currently daemon threads
+    should still be used on modular builds as this function is not available
+    there.
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return None
 
 
 def audio_shutdown_begin() -> None:
@@ -721,7 +763,7 @@ def clipboard_set_text(value: str) -> None:
     return None
 
 
-def commit_config(config: str) -> None:
+def commit_app_config(config: str) -> None:
     """:meta private:"""
     # This is a dummy stub; the actual implementation is native code.
     return None
@@ -780,6 +822,7 @@ def dev_console_add_text(
     h_align: str,
     v_align: str,
     scale: float,
+    style: str,
 ) -> None:
     """:meta private:"""
     # This is a dummy stub; the actual implementation is native code.
@@ -814,6 +857,97 @@ def dev_console_tab_width() -> float:
     """:meta private:"""
     # This is a dummy stub; the actual implementation is native code.
     return float()
+
+
+def discord_add_button(label: str, url: str) -> None:
+    """Add Discord rich presence button.
+    Args:
+       label: Label for the button
+       url: URL to open when the button is clicked
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
+def discord_is_ready() -> bool:
+    """ """
+    # This is a dummy stub; the actual implementation is native code.
+    return bool()
+
+
+def discord_join_lobby(lobby_secret: str) -> None:
+    """Join a discord lobby.
+    Args:
+       lobby_secret: Unique identifier for the lobby
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
+def discord_leave_lobby() -> None:
+    """Leave a discord lobby."""
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
+def discord_richpresence(
+    state: str | None = None,
+    details: str | None = None,
+    large_image_key: str | None = None,
+    large_image_text: str | None = None,
+    small_image_key: str | None = None,
+    small_image_text: str | None = None,
+    start_timestamp: str | None = None,
+    end_timestamp: str | None = None,
+) -> None:
+    """Set Discord Rich Presence information.
+    Args:
+       state: The user's current status
+       details: What the user is currently doing
+       large_image_key: Key for the large image
+       large_image_text: Text displayed when hovering over the large image
+       small_image_key: Key for the small image
+       small_image_text: Text displayed when hovering over the small image
+       start_timestamp: Unix timestamp for game start time
+       end_timestamp: Unix timestamp for game end time
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
+def discord_send_lobby_message(message: str) -> None:
+    """Args:
+    message: Message to send to a discord lobby.
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
+def discord_set_party(
+    party_id: str | None = None,
+    current_party_size: int | None = None,
+    max_party_size: int | None = None,
+) -> None:
+    """Set Discord Party information.
+    Args:
+       party_id: Unique identifier for the party
+       current_party_size: Current number of members in the party
+       max_party_size: Maximum number of members allowed in the party
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
+def discord_shutdown() -> None:
+    """Shutdown and disconnect the Discord client."""
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
+def discord_start() -> None:
+    """start the discord sdk and connect the client."""
+    # This is a dummy stub; the actual implementation is native code.
+    return None
 
 
 def displaytime() -> babase.DisplayTime:
@@ -865,12 +999,6 @@ def displaytimer(time: float, call: Callable[[], Any]) -> None:
         babase.displaytimer(2.0, babase.Call(babase.screenmessage,
                             'hello from the future 2!'))
     """
-    # This is a dummy stub; the actual implementation is native code.
-    return None
-
-
-def do_apply_app_config() -> None:
-    """:meta private:"""
     # This is a dummy stub; the actual implementation is native code.
     return None
 
@@ -1139,6 +1267,17 @@ def get_string_width(string: str, suppress_warning: bool = False) -> float:
     return float()
 
 
+def get_suppress_config_and_state_writes() -> None:
+    """Are config and state writes suppressed?
+
+    This can be used by tools intending to manipulate these files
+    manually. Such tools should be sure to restart or quit the app
+    when done to restore normal behavior.
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
 def get_thread_name() -> str:
     """Return the name of the current thread.
 
@@ -1182,18 +1321,6 @@ def get_virtual_screen_size() -> tuple[float, float]:
     """Return the current virtual size of the display."""
     # This is a dummy stub; the actual implementation is native code.
     return (0.0, 0.0)
-
-
-def get_volatile_data_directory() -> str:
-    """Return the path to the app volatile data directory.
-
-    This directory is for data generated by the app that does not
-    need to be backed up and can be recreated if necessary.
-
-    :meta private:
-    """
-    # This is a dummy stub; the actual implementation is native code.
-    return str()
 
 
 def getapp() -> babase.App:
@@ -1269,7 +1396,7 @@ def increment_analytics_count(name: str, increment: int = 1) -> None:
 
 
 def increment_analytics_count_raw_2(
-    name: str, uses_increment: bool = True, increment: int = 1
+    name: str, uses_increment: int = 1, increment: int = 1
 ) -> None:
     """:meta private:"""
     # This is a dummy stub; the actual implementation is native code.
@@ -1278,18 +1405,6 @@ def increment_analytics_count_raw_2(
 
 def increment_analytics_counts_raw(name: str, increment: int = 1) -> None:
     """:meta private:"""
-    # This is a dummy stub; the actual implementation is native code.
-    return None
-
-
-def invoke_main_menu() -> None:
-    """High level call to bring up the main menu if it is not present.
-
-    This is essentially the same as pressing the menu button on a
-    controller.
-
-    :meta private:
-    """
     # This is a dummy stub; the actual implementation is native code.
     return None
 
@@ -1375,6 +1490,12 @@ def mac_music_app_stop() -> None:
 
 
 def mark_log_sent() -> None:
+    """:meta private:"""
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
+def menu_press() -> None:
     """:meta private:"""
     # This is a dummy stub; the actual implementation is native code.
     return None
@@ -1549,12 +1670,6 @@ def print_load_info() -> None:
     return None
 
 
-def push_back_press() -> None:
-    """:meta private:"""
-    # This is a dummy stub; the actual implementation is native code.
-    return None
-
-
 def pushcall(
     call: Callable,
     from_other_thread: bool = False,
@@ -1564,7 +1679,8 @@ def pushcall(
 ) -> None:
     """Push a call to the logic-thread's event loop.
 
-    This function expects to be called from the logic thread, and will automatically save and restore the context to behave seamlessly.
+    This function expects to be called from the logic thread, and will
+    automatically save and restore the context to behave seamlessly.
 
     To push a call from outside of the logic thread, pass
     ``from_other_thread=True``. In that case the call will run with no
@@ -1600,12 +1716,30 @@ def reached_end_of_babase() -> None:
     return None
 
 
+def reload_hooks() -> None:
+    """Reload functions and other objects held by the native layer.
+    Call this if you replace things in a hooks module to get the
+    native layer to see your changes.
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
 def reload_media() -> None:
     """Reload all currently loaded game media.
 
     Mainly for development/debugging.
 
     :meta private:
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
+def request_main_ui() -> None:
+    """High level call to request a main ui if it is not already open.
+
+    Can be called from any thread.
     """
     # This is a dummy stub; the actual implementation is native code.
     return None
@@ -1655,6 +1789,15 @@ def screenmessage(
     Note that this function is purely for local display. To broadcast
     screen-messages during gameplay, look for methods such as
     :meth:`bascenev1.broadcastmessage()`.
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
+def set_account_sign_in_state(signed_in: bool, name: str | None = None) -> None:
+    """Keep the base layer informed of who is currently signed in (or not).
+
+    :meta private:
     """
     # This is a dummy stub; the actual implementation is native code.
     return None
@@ -1744,6 +1887,15 @@ def set_low_level_config_value(key: str, value: int) -> None:
     return None
 
 
+def set_main_ui_input_device(input_device_id: int | None) -> None:
+    """Sets the input-device that currently owns the main ui.
+
+    :meta private:
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
 def set_platform_misc_read_vals(mode: str) -> None:
     """:meta private:"""
     # This is a dummy stub; the actual implementation is native code.
@@ -1755,21 +1907,6 @@ def set_thread_name(name: str) -> None:
 
     Thread names are only for debugging and should not be used in logic,
     as naming behavior can vary across platforms.
-
-    :meta private:
-    """
-    # This is a dummy stub; the actual implementation is native code.
-    return None
-
-
-def set_ui_account_state(signed_in: bool, name: str | None = None) -> None:
-    """:meta private:"""
-    # This is a dummy stub; the actual implementation is native code.
-    return None
-
-
-def set_ui_input_device(input_device_id: int | None) -> None:
-    """Sets the input-device that currently owns the user interface.
 
     :meta private:
     """
@@ -1846,6 +1983,17 @@ def supports_vsync() -> bool:
     """:meta private:"""
     # This is a dummy stub; the actual implementation is native code.
     return bool()
+
+
+def suppress_config_and_state_writes() -> None:
+    """Disable subsequent writes of app config and state files by the engine.
+
+    This can be used by tools intending to manipulate these files
+    manually. Such tools should be sure to restart or quit the app
+    when done to restore normal behavior.
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return None
 
 
 def temp_testing() -> bool:

@@ -102,13 +102,22 @@ def classic_app_mode_handle_app_intent_exec(command: str) -> None:
     return None
 
 
-def get_account_display_state() -> Any:
+def get_account_state() -> Any:
     """(internal)"""
     # This is a dummy stub; the actual implementation is native code.
     return _uninferrable()
 
 
-def set_account_display_state(vals: dict) -> None:
+def reload_hooks() -> None:
+    """Reload functions and other objects held by the native layer.
+    Call this if you replace things in a hooks module to get the
+    native layer to see your changes.
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
+def set_account_state(vals: dict) -> None:
     """(internal)"""
     # This is a dummy stub; the actual implementation is native code.
     return None

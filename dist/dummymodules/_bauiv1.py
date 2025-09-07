@@ -309,9 +309,17 @@ def containerwidget(
         ]
         | None
     ) = None,
+    toolbar_cancel_button_style: (
+        Literal[
+            'back',
+            'close',
+        ]
+        | None
+    ) = None,
     on_select_call: Callable[[], None] | None = None,
     claim_outside_clicks: bool | None = None,
     claims_up_down: bool | None = None,
+    darken_behind: bool | None = None,
 ) -> bauiv1.Widget:
     """Create or edit a container widget.
 
@@ -340,6 +348,7 @@ def get_special_widget(
     name: Literal[
         'squad_button',
         'back_button',
+        'menu_button',
         'account_button',
         'achievements_button',
         'settings_button',
@@ -461,6 +470,15 @@ def is_available() -> bool:
 
 def on_ui_scale_change() -> None:
     """(internal)"""
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
+def reload_hooks() -> None:
+    """Reload functions and other objects held by the native layer.
+    Call this if you replace things in a hooks module to get the
+    native layer to see your changes.
+    """
     # This is a dummy stub; the actual implementation is native code.
     return None
 

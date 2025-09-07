@@ -68,16 +68,46 @@ def game_service_has_leaderboard(game: str, config: str) -> bool:
     return bool()
 
 
+def get_bootstrap_server_address() -> str:
+    """Return the address of the current valid bootstrap server.
+
+    Will error if a bootstrap addr has not been set.
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return str()
+
+
+def get_bootstrap_server_addresses() -> list[str]:
+    """Return server addresses useable for bootstrapping.
+
+    Bootstrapping involves locating and arranging a connection
+    with a nearby regional server. Servers are returned in precedence
+    order; first should be tried first, etc.
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return ['blah', 'blah2']
+
+
 def get_classic_news_show() -> str:
     """(internal)"""
     # This is a dummy stub; the actual implementation is native code.
     return str()
 
 
-def get_master_server_address(source: int = -1, version: int = 1) -> str:
+def get_legacy_master_server_address() -> str:
     """(internal)
 
-    Return the address of the master server.
+    Return the address of the legacy master server.
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return str()
+
+
+def get_master_server_address() -> str:
+    """Return the address of the master server.
+
+    This is the primary address, suitable for opening in web browsers,
+    etc.
     """
     # This is a dummy stub; the actual implementation is native code.
     return str()
@@ -119,18 +149,6 @@ def get_v1_account_name() -> str:
     return str()
 
 
-def get_v1_account_product_purchased(item: str) -> bool:
-    """(internal)"""
-    # This is a dummy stub; the actual implementation is native code.
-    return bool()
-
-
-def get_v1_account_product_purchases_state() -> int:
-    """(internal)"""
-    # This is a dummy stub; the actual implementation is native code.
-    return int()
-
-
 def get_v1_account_public_login_id() -> str | None:
     """(internal)"""
     # This is a dummy stub; the actual implementation is native code.
@@ -145,15 +163,6 @@ def get_v1_account_state() -> str:
 
 def get_v1_account_state_num() -> int:
     """(internal)"""
-    # This is a dummy stub; the actual implementation is native code.
-    return int()
-
-
-def get_v1_account_ticket_count() -> int:
-    """(internal)
-
-    Returns the number of tickets for the current account.
-    """
     # This is a dummy stub; the actual implementation is native code.
     return int()
 
@@ -244,6 +253,12 @@ def restore_purchases() -> None:
 
 def run_v1_account_transactions() -> None:
     """(internal)"""
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
+def set_bootstrap_server_address(address: str) -> None:
+    """Set which of our bootstrap server addresses we should use."""
     # This is a dummy stub; the actual implementation is native code.
     return None
 
