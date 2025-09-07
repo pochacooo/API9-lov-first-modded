@@ -184,7 +184,11 @@ class MessageProtocol:
     @staticmethod
     def encode_dict(obj: dict) -> str:
         """Json-encode a provided dict."""
-        return json.dumps(obj, separators=(',', ':'))
+        return json.dumps(
+            obj,
+            separators=(',', ':'),
+            allow_nan=False,
+        )
 
     def message_to_dict(self, message: Message) -> dict:
         """Encode a message to a json ready dict."""
@@ -201,8 +205,8 @@ class MessageProtocol:
         within handle_raw_message().
         """
 
-        # If anything goes wrong, return a ErrorSysResponse instead.
-        # (either CLEAN or generic REMOTE)
+        # If anything goes wrong, return a ErrorSysResponse instead
+        # (either CLEAN or generic REMOTE).
         if self.forward_clean_errors and isinstance(exc, CleanError):
             return (
                 ErrorSysResponse(

@@ -56,9 +56,7 @@ def filter_chat_message(msg: str, client_id: int) -> str | None:
     return handlechat.filter_chat_message(msg, client_id)
 
 
-# ba_meta export plugin
-
-
+# ba_meta export babse.Plugin
 class modSetup(babase.Plugin):
     def on_app_running(self):
         """Runs when app is launched."""
@@ -386,9 +384,9 @@ def on_access_check_response(self, data):
     if data is not None:
         addr = data['address']
         port = data['port']
-        if settings["ballistica_web"]["enable"]:
+        if settings["ballistica_web"]["enabled"]:
             bs.set_public_party_stats_url(
-                f'https://bombsquad-community.web.app/server-manager/?host={addr}:{port}')
+                f'https://bombsquad-community.web.app/server-manager/?host={addr}&port={port}')
 
     servercontroller._access_check_response(self, data)
 

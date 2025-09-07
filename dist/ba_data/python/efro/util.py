@@ -1009,3 +1009,62 @@ def weighted_choice[T](*args: tuple[T, float]) -> T:
     weights: tuple[float]
     items, weights = zip(*args)
     return random.choices(items, weights=weights)[0]
+
+
+def prune_empty_dirs(prunedir: str) -> None:
+    """Prune all empty dirs under the path provided."""
+    # Walk the tree bottom-up so we can properly kill recursive
+    # empty dirs.
+    for dirpath, dirnames, filenames in os.walk(prunedir, topdown=False):
+        # It seems that child dirs we kill during the walk are still
+        # listed when the parent dir is visited, so we need to explicitly
+        # check for their existence.
+        any_dirname_exists = any(
+            os.path.exists(os.path.join(dirpath, dirname))
+            for dirname in dirnames
+        )
+        if not any_dirname_exists and not filenames and dirpath != prunedir:
+            try:
+                os.rmdir(dirpath)
+            except Exception as exc:
+                raise RuntimeError(
+                    f'Failed to prune empty dir "{dirpath}": {exc}'
+                ) from exc
+
+
+def strip_exception_tracebacks(exc: BaseException) -> None:
+    """Strip tracebacks from exceptions to break reference cycles.
+
+    A common cause of reference cycles is handled exceptions holding on
+    to tracebacks which hold on to stack frames which hold on to the
+    exceptions somewhere in their locals.
+
+    Stripping tracebacks out of exceptions once done handling them is a
+    good way to break such cycles and avoid relying on the cyclic
+    garbage collector.
+
+    This call strips tracebacks from the provided exception, any
+    exceptions that were active when it was raised, and any it was
+    explicitly raised from, recursively. Be sure you are done using the
+    exception before calling this.
+    """
+    seen = set()
+    stack = [exc]
+    while stack:
+        e = stack.pop()
+        if e in seen:
+            continue
+        seen.add(e)
+
+        e.__traceback__ = None
+
+        # Exception that was being handled when this one was raised (not
+        # an explicit 'raise ... from ...').
+        context = getattr(e, '__context__', None)
+        if context is not None:
+            stack.append(context)
+
+        # Explicit 'raise ... from ...' parent.
+        cause = getattr(e, '__cause__', None)
+        if cause is not None:
+            stack.append(cause)

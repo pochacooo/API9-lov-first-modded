@@ -312,10 +312,13 @@ class InboxWindow(bui.MainWindow):
         self,
         transition: str | None = 'in_right',
         origin_widget: bui.Widget | None = None,
+        auxiliary_style: bool = True,
     ):
 
         assert bui.app.classic is not None
         uiscale = bui.app.ui_v1.uiscale
+
+        self._action_ui_pause: bui.RootUIUpdatePause | None = None
 
         self._entry_displays: list[_EntryDisplay] = []
 
@@ -351,8 +354,9 @@ class InboxWindow(bui.MainWindow):
         super().__init__(
             root_widget=bui.containerwidget(
                 size=(self._width, self._height),
-                toolbar_visibility=(
-                    'menu_full' if uiscale is bui.UIScale.SMALL else 'menu_full'
+                toolbar_visibility=('menu_full'),
+                toolbar_cancel_button_style=(
+                    'close' if auxiliary_style else 'back'
                 ),
                 scale=scale,
             ),
@@ -374,8 +378,12 @@ class InboxWindow(bui.MainWindow):
                 position=(50, yoffs - 48),
                 size=(60, 60),
                 scale=0.6,
-                label=bui.charstr(bui.SpecialChar.BACK),
-                button_type='backSmall',
+                label=bui.charstr(
+                    bui.SpecialChar.CLOSE
+                    if auxiliary_style
+                    else bui.SpecialChar.BACK
+                ),
+                button_type=None if auxiliary_style else 'backSmall',
                 on_activate_call=self.main_window_back,
             )
             bui.containerwidget(
@@ -507,6 +515,11 @@ class InboxWindow(bui.MainWindow):
             bui.getsound('error').play()
             return
 
+        # Pause the root ui so stuff like token counts don't change
+        # automatically until we've run any client-effect animations
+        # resulting from this message.
+        self._action_ui_pause = bui.RootUIUpdatePause()
+
         # Ask the master-server to run our action.
         with plus.accounts.primary:
             plus.cloud.send_message_cb(
@@ -569,6 +582,11 @@ class InboxWindow(bui.MainWindow):
         response: bacommon.bs.ClientUIActionResponse | Exception,
     ) -> None:
         # pylint: disable=too-many-branches
+
+        # Let the UI auto-update again after any animations we may apply
+        # here.
+        self._action_ui_pause = None
+
         display = display_weak()
         if display is None:
             return
@@ -1118,9 +1136,6 @@ class InboxWindow(bui.MainWindow):
                     edit=button,
                     up_widget=above_widget,
                     down_widget=below_widget,
-                    # down_widget=(
-                    #     button if below_widget is None else below_widget
-                    # ),
                     right_widget=buttons[max(j - 1, 0)],
                     left_widget=buttons[min(j + 1, len(buttons) - 1)],
                 )

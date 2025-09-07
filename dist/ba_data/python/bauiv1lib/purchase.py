@@ -61,6 +61,7 @@ class PurchaseWindow(bui.Window):
                 stack_offset=(
                     (0, -15) if uiscale is bui.UIScale.SMALL else (0, 0)
                 ),
+                darken_behind=True,
             )
         )
         self._is_double = False
@@ -163,7 +164,8 @@ class PurchaseWindow(bui.Window):
             if bui.app.classic.accounts.have_pro():
                 can_die = True
         else:
-            if plus.get_v1_account_product_purchased(self._items[0]):
+            assert bui.app.classic is not None
+            if self._items[0] in bui.app.classic.purchases:
                 can_die = True
 
         if can_die:
@@ -173,13 +175,15 @@ class PurchaseWindow(bui.Window):
 
         plus = bui.app.plus
         assert plus is not None
+        classic = bui.app.classic
+        assert classic is not None
 
         if self._items == ['pro']:
             plus.purchase('pro')
         else:
             ticket_count: int | None
             try:
-                ticket_count = plus.get_v1_account_ticket_count()
+                ticket_count = classic.tickets
             except Exception:
                 ticket_count = None
             if ticket_count is not None and ticket_count < self._price:
@@ -188,7 +192,6 @@ class PurchaseWindow(bui.Window):
                     bui.Lstr(resource='notEnoughTicketsText'),
                     color=(1, 0, 0),
                 )
-                # gettickets.show_get_tickets_prompt()
                 return
 
             def do_it() -> None:

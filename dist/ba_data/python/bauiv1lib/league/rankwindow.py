@@ -23,6 +23,7 @@ class LeagueRankWindow(bui.MainWindow):
         self,
         transition: str | None = 'in_right',
         origin_widget: bui.Widget | None = None,
+        auxiliary_style: bool = True,
     ):
         # pylint: disable=too-many-statements
         plus = bui.app.plus
@@ -71,7 +72,7 @@ class LeagueRankWindow(bui.MainWindow):
         # screen shape at small ui scale.
         screensize = bui.get_virtual_screen_size()
         scale = (
-            1.3
+            1.13
             if uiscale is bui.UIScale.SMALL
             else 0.93 if uiscale is bui.UIScale.MEDIUM else 0.8
         )
@@ -97,10 +98,9 @@ class LeagueRankWindow(bui.MainWindow):
                     else (0, 10) if uiscale is bui.UIScale.MEDIUM else (0, 0)
                 ),
                 scale=scale,
-                toolbar_visibility=(
-                    'menu_minimal'
-                    if uiscale is bui.UIScale.SMALL
-                    else 'menu_full'
+                toolbar_visibility=('menu_full'),
+                toolbar_cancel_button_style=(
+                    'close' if auxiliary_style else 'back'
                 ),
             ),
             transition=transition,
@@ -121,8 +121,12 @@ class LeagueRankWindow(bui.MainWindow):
                 size=(60, 55),
                 scale=1.2,
                 autoselect=True,
-                label=bui.charstr(bui.SpecialChar.BACK),
-                button_type='backSmall',
+                label=bui.charstr(
+                    bui.SpecialChar.CLOSE
+                    if auxiliary_style
+                    else bui.SpecialChar.BACK
+                ),
+                button_type=None if auxiliary_style else 'backSmall',
                 on_activate_call=self.main_window_back,
             )
             bui.containerwidget(
@@ -169,7 +173,7 @@ class LeagueRankWindow(bui.MainWindow):
 
         self._subcontainer: bui.Widget | None = None
         self._subcontainerwidth = 1024
-        self._subcontainerheight = 483
+        self._subcontainerheight = 573
         self._power_ranking_score_widgets: list[bui.Widget] = []
 
         self._season_popup_menu: PopupMenu | None = None
@@ -739,7 +743,7 @@ class LeagueRankWindow(bui.MainWindow):
         else:
             league_str = ''
         bui.open_url(
-            plus.get_master_server_address()
+            plus.get_legacy_master_server_address()
             + '/highscores?list=powerRankings&v=2'
             + league_str
             + season_str

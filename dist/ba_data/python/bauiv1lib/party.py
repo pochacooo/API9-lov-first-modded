@@ -59,6 +59,7 @@ class PartyWindow(bui.Window):
                         (260, 0) if uiscale is bui.UIScale.MEDIUM else (370, 60)
                     )
                 ),
+                darken_behind=True,
             ),
             # We exist in the overlay stack so main-windows being
             # recreated doesn't affect us.
@@ -70,12 +71,10 @@ class PartyWindow(bui.Window):
             scale=0.7,
             position=(30, self._height - 47),
             size=(50, 50),
-            label='',
             on_activate_call=self.close,
             autoselect=True,
             color=(0.45, 0.63, 0.15),
-            icon=bui.gettexture('crossOut'),
-            iconscale=1.2,
+            label=bui.charstr(bui.SpecialChar.CLOSE),
         )
         bui.containerwidget(
             edit=self._root_widget, cancel_button=self._cancel_button
@@ -200,6 +199,7 @@ class PartyWindow(bui.Window):
         )
 
         bui.textwidget(edit=txt, on_return_press_call=btn.activate)
+        bui.widget(edit=txt, down_widget=btn)
         self._name_widgets: list[bui.Widget] = []
         self._roster: list[dict[str, Any]] | None = None
         self._update_timer = bui.AppTimer(
@@ -235,7 +235,14 @@ class PartyWindow(bui.Window):
 
     def _copy_msg(self, msg: str) -> None:
         if bui.clipboard_is_supported():
-            bui.clipboard_set_text(msg)
+            # Extract content after the first colon
+            if ':' in msg:
+                content = msg.split(':', 1)[1].strip()
+            else:
+                # Just a safe check
+                content = msg
+
+            bui.clipboard_set_text(content)
             bui.screenmessage(
                 bui.Lstr(resource='copyConfirmText'), color=(0, 1, 0)
             )

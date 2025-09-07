@@ -17,6 +17,9 @@ if TYPE_CHECKING:
 class InGameMenuWindow(bui.MainWindow):
     """The menu that can be invoked while in a game."""
 
+    # end-game, exit-replay, leave-party, etc.
+    _end_button: bui.Widget
+
     def __init__(
         self,
         transition: str | None = 'in_right',
@@ -34,8 +37,8 @@ class InGameMenuWindow(bui.MainWindow):
         )
 
         # Grab this stuff in case it changes.
-        self._is_demo = bui.app.env.demo
-        self._is_arcade = bui.app.env.arcade
+        # self._is_demo = bui.app.env.demo
+        # self._is_arcade = bui.app.env.arcade
 
         self._p_index = 0
         self._use_autoselect = True
@@ -64,7 +67,7 @@ class InGameMenuWindow(bui.MainWindow):
 
         self._r = 'mainMenu'
 
-        self._input_device = input_device = bs.get_ui_input_device()
+        self._input_device = input_device = bs.get_main_ui_input_device()
 
         # Are we connected to a local player?
         self._input_player = input_device.player if input_device else None
@@ -86,7 +89,7 @@ class InGameMenuWindow(bui.MainWindow):
 
         # If we're in a replay, we have a 'Leave Replay' button.
         if bs.is_in_replay():
-            bui.buttonwidget(
+            self._end_button = bui.buttonwidget(
                 parent=self._root_widget,
                 position=(h - self._button_width * 0.5 * scale, v),
                 scale=scale,
@@ -96,7 +99,7 @@ class InGameMenuWindow(bui.MainWindow):
                 on_activate_call=self._confirm_end_replay,
             )
         elif bs.get_foreground_host_session() is not None:
-            bui.buttonwidget(
+            self._end_button = bui.buttonwidget(
                 parent=self._root_widget,
                 position=(h - self._button_width * 0.5 * scale, v),
                 scale=scale,
@@ -117,8 +120,9 @@ class InGameMenuWindow(bui.MainWindow):
                 ),
             )
         else:
-            # Assume we're in a client-session.
-            bui.buttonwidget(
+            # Assume we're in a client-session and make a 'leave party'
+            # button.
+            self._end_button = bui.buttonwidget(
                 parent=self._root_widget,
                 position=(h - self._button_width * 0.5 * scale, v),
                 scale=scale,
@@ -316,9 +320,13 @@ class InGameMenuWindow(bui.MainWindow):
                 logging.exception(
                     'Error getting custom menu entries for %s.', session
                 )
+        variant = bui.app.env.variant
+        vart = type(variant)
+        arcade_or_demo = variant is vart.ARCADE or variant is vart.DEMO
+
         self._width = 250.0
         self._height = 250.0 if self._input_player else 180.0
-        if (self._is_demo or self._is_arcade) and self._input_player:
+        if arcade_or_demo and self._input_player:
             self._height -= 40
         # if not self._have_settings_button:
         self._height -= 50
@@ -403,7 +411,7 @@ class InGameMenuWindow(bui.MainWindow):
 
         # Add a 'leave' button if the menu-owner has a player.
         if (self._input_player or self._connected_to_remote_player) and not (
-            self._is_demo or self._is_arcade
+            arcade_or_demo
         ):
             h, v, scale = positions[self._p_index]
             self._p_index += 1
@@ -501,48 +509,56 @@ class InGameMenuWindow(bui.MainWindow):
 
         # FIXME: Currently we crash calling this on client-sessions.
 
-        # Select cancel by default; this occasionally gets called by accident
-        # in a fit of button mashing and this will help reduce damage.
+        # Select cancel by default; this occasionally gets called by
+        # accident in a fit of button mashing and this will help reduce
+        # damage.
         ConfirmWindow(
             bui.Lstr(resource=f'{self._r}.exitToMenuText'),
             self._end_game,
             cancel_is_selected=True,
+            origin_widget=self._end_button,
         )
 
     def _confirm_end_test(self) -> None:
         # pylint: disable=cyclic-import
         from bauiv1lib.confirm import ConfirmWindow
 
-        # Select cancel by default; this occasionally gets called by accident
-        # in a fit of button mashing and this will help reduce damage.
+        # Select cancel by default; this occasionally gets called by
+        # accident in a fit of button mashing and this will help reduce
+        # damage.
         ConfirmWindow(
             bui.Lstr(resource=f'{self._r}.exitToMenuText'),
             self._end_game,
             cancel_is_selected=True,
+            origin_widget=self._end_button,
         )
 
     def _confirm_end_replay(self) -> None:
         # pylint: disable=cyclic-import
         from bauiv1lib.confirm import ConfirmWindow
 
-        # Select cancel by default; this occasionally gets called by accident
-        # in a fit of button mashing and this will help reduce damage.
+        # Select cancel by default; this occasionally gets called by
+        # accident in a fit of button mashing and this will help reduce
+        # damage.
         ConfirmWindow(
             bui.Lstr(resource=f'{self._r}.exitToMenuText'),
             self._end_game,
             cancel_is_selected=True,
+            origin_widget=self._end_button,
         )
 
     def _confirm_leave_party(self) -> None:
         # pylint: disable=cyclic-import
         from bauiv1lib.confirm import ConfirmWindow
 
-        # Select cancel by default; this occasionally gets called by accident
-        # in a fit of button mashing and this will help reduce damage.
+        # Select cancel by default; this occasionally gets called by
+        # accident in a fit of button mashing and this will help reduce
+        # damage.
         ConfirmWindow(
             bui.Lstr(resource=f'{self._r}.leavePartyConfirmText'),
             self._leave_party,
             cancel_is_selected=True,
+            origin_widget=self._end_button,
         )
 
     def _leave_party(self) -> None:
@@ -555,7 +571,14 @@ class InGameMenuWindow(bui.MainWindow):
         if not self._root_widget or self._root_widget.transitioning_out:
             return
 
-        bui.containerwidget(edit=self._root_widget, transition='out_left')
+        # Let's just always scale down centered here; it looks weird to
+        # be zooming/scaling across the screen in this case.
+        bui.containerwidget(
+            edit=self._root_widget,
+            transition='out_scale',
+            scale_origin_stack_offset=(0, 0),
+        )
+
         bui.app.classic.return_to_main_menu_session_gracefully(reset_ui=False)
 
     def _leave(self) -> None:
@@ -586,6 +609,3 @@ class InGameMenuWindow(bui.MainWindow):
                 logging.exception('Error in classic resume callback.')
 
         classic.main_menu_resume_callbacks.clear()
-
-    # def __del__(self) -> None:
-    #     self._resume()

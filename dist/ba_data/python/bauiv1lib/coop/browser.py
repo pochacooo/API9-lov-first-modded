@@ -114,6 +114,13 @@ class CoopBrowserWindow(bui.MainWindow):
             if uiscale is bui.UIScale.SMALL
             else 0.8 if uiscale is bui.UIScale.MEDIUM else 0.75
         )
+
+        # Scale down if necessary so the full width of our UI is
+        # visible.
+        min_width = 1000
+        if screensize[0] / scale < min_width:
+            scale *= (screensize[0] / scale) / min_width
+
         # Calc screen size in our local container space and clamp to a
         # bit smaller than our container size.
         target_width = min(self._width - 120, screensize[0] / scale)
@@ -359,11 +366,16 @@ class CoopBrowserWindow(bui.MainWindow):
         if self._fg_state != bui.app.fg_state:
             self._tourney_data_up_to_date = False
 
-        # Send off a new tournament query if its been long enough or whatnot.
-        if not self._doing_tournament_query and (
-            self._last_tournament_query_time is None
-            or cur_time - self._last_tournament_query_time > 30.0
-            or self._fg_state != bui.app.fg_state
+        # Send off a new tournament query if its been long enough or
+        # whatnot.
+        if (
+            not self._doing_tournament_query
+            and plus.cloud.connected
+            and (
+                self._last_tournament_query_time is None
+                or cur_time - self._last_tournament_query_time > 30.0
+                or self._fg_state != bui.app.fg_state
+            )
         ):
             self._fg_state = bui.app.fg_state
             self._last_tournament_query_time = cur_time
@@ -374,7 +386,7 @@ class CoopBrowserWindow(bui.MainWindow):
             )
 
         # Decrement time on our tournament buttons.
-        ads_enabled = plus.have_incentivized_ad()
+        ads_enabled = plus.ads.have_incentivized_ad()
         for tbtn in self._tournament_buttons:
             tbtn.time_remaining = max(0, tbtn.time_remaining - 1)
             if tbtn.time_remaining_value_text is not None:
@@ -391,7 +403,7 @@ class CoopBrowserWindow(bui.MainWindow):
                 )
 
             # Also adjust the ad icon visibility.
-            if tbtn.allow_ads and plus.has_video_ads():
+            if tbtn.allow_ads and plus.ads.has_video_ads():
                 bui.imagewidget(
                     edit=tbtn.entry_fee_ad_image,
                     opacity=1.0 if ads_enabled else 0.25,
@@ -879,12 +891,15 @@ class CoopBrowserWindow(bui.MainWindow):
             'Challenges:Meteor Shower',
             'Challenges:Target Practice B',
             'Challenges:Target Practice',
+            'Challenges:Race',
+            'Challenges:Pro Race',
         ]
 
         # Show easter-egg-hunt either if its easter or we own it.
-        if plus.get_v1_account_misc_read_val(
-            'easter', False
-        ) or plus.get_v1_account_product_purchased('games.easter_egg_hunt'):
+        if (
+            plus.get_v1_account_misc_read_val('easter', False)
+            or 'games.easter_egg_hunt' in bui.app.classic.purchases
+        ):
             items = [
                 'Challenges:Easter Egg Hunt',
                 'Challenges:Pro Easter Egg Hunt',
@@ -1056,8 +1071,8 @@ class CoopBrowserWindow(bui.MainWindow):
 
         # Show pop-up to allow purchasing any required stuff we don't have.
         for purchase in required_purchases:
-            if not plus.get_v1_account_product_purchased(purchase):
-                if plus.get_v1_account_state() != 'signed_in':
+            if not purchase in bui.app.classic.purchases:
+                if plus.accounts.primary is None:
                     show_sign_in_prompt()
                 else:
                     PurchaseWindow(
@@ -1143,8 +1158,8 @@ class CoopBrowserWindow(bui.MainWindow):
             assert required_purchases
 
             for purchase in required_purchases:
-                if not plus.get_v1_account_product_purchased(purchase):
-                    if plus.get_v1_account_state() != 'signed_in':
+                if purchase not in classic.purchases:
+                    if plus.accounts.primary is None:
                         show_sign_in_prompt()
                     else:
                         PurchaseWindow(

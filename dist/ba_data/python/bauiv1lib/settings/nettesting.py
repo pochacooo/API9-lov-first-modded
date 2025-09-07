@@ -7,10 +7,12 @@ from __future__ import annotations
 import time
 import copy
 import weakref
+from dataclasses import dataclass
 from threading import Thread
 from typing import TYPE_CHECKING, override
 
 from efro.error import CleanError
+from efro.util import strip_exception_tracebacks, strict_partial
 from bauiv1lib.settings.testing import TestingWindow
 import bauiv1 as bui
 
@@ -155,10 +157,7 @@ class NetTestingWindow(bui.MainWindow):
         # Pass a weak-ref to this window so we don't keep it alive
         # if we back out before it completes. Also set is as daemon
         # so it doesn't keep the app running if the user is trying to quit.
-        Thread(
-            daemon=True,
-            target=bui.Call(_run_diagnostics, weakref.ref(self)),
-        ).start()
+        Thread(target=bui.Call(_run_diagnostics, weakref.ref(self))).start()
 
     @override
     def get_main_window_state(self) -> bui.MainWindowState:
@@ -206,7 +205,6 @@ class NetTestingWindow(bui.MainWindow):
 
 def _run_diagnostics(weakwin: weakref.ref[NetTestingWindow]) -> None:
     # pylint: disable=too-many-statements
-    # pylint: disable=too-many-branches
 
     from efro.util import utc_now
 
@@ -230,7 +228,7 @@ def _run_diagnostics(weakwin: weakref.ref[NetTestingWindow]) -> None:
         try:
             call()
             duration = time.monotonic() - starttime
-            _print(f'Succeeded in {duration:.2f}s.', color=(0, 1, 0))
+            _print(f'Succeeded in {duration:.3f}s.', color=(0, 1, 0))
             return True
         except Exception as exc:
             import traceback
@@ -244,6 +242,11 @@ def _run_diagnostics(weakwin: weakref.ref[NetTestingWindow]) -> None:
             _print(msg, color=(1.0, 1.0, 0.3))
             _print(f'Failed in {duration:.2f}s.', color=(1, 0, 0))
             have_error[0] = True
+
+            # We're done with the exception, so strip its tracebacks to
+            # avoid reference cycles.
+            strip_exception_tracebacks(exc)
+
             return False
 
     try:
@@ -265,47 +268,29 @@ def _run_diagnostics(weakwin: weakref.ref[NetTestingWindow]) -> None:
             _print('\nRunning dummy fail test...')
             _print_test_results(_dummy_fail)
 
-        # V1 ping
-        baseaddr = plus.get_master_server_address(source=0, version=1)
-        _print(f'\nContacting V1 master-server src0 ({baseaddr})...')
-        v1worked = _print_test_results(lambda: _test_fetch(baseaddr))
-
-        # V1 alternate ping (only if primary fails since this often fails).
-        if v1worked:
-            _print('\nSkipping V1 master-server src1 test since src0 worked.')
-        else:
-            baseaddr = plus.get_master_server_address(source=1, version=1)
-            _print(f'\nContacting V1 master-server src1 ({baseaddr})...')
-            _print_test_results(lambda: _test_fetch(baseaddr))
-
-        if 'none succeeded' in bui.app.net.v1_test_log:
+        # Bootstrap pings
+        bootstrap_addrs = plus.get_bootstrap_server_addresses()
+        for i, addr in enumerate(bootstrap_addrs):
             _print(
-                f'\nV1-test-log failed: {bui.app.net.v1_test_log}',
-                color=(1, 0, 0),
+                f'\nContacting bootstrap addr {i+1}'
+                f' of {len(bootstrap_addrs)} ({addr})...'
             )
-            have_error[0] = True
-        else:
-            _print(f'\nV1-test-log ok: {bui.app.net.v1_test_log}')
+            _print_test_results(strict_partial(_test_fetch, addr))
 
-        for srcid, result in sorted(bui.app.net.v1_ctest_results.items()):
-            _print(f'\nV1 src{srcid} result: {result}')
+        # V2 ping
+        # (UPDATE: Disabling since this is also a bootstrap server).
+        # baseaddr = plus.get_master_server_address()
+        # _print(f'\nContacting V2 master-server ({baseaddr})...')
+        # _print_test_results(lambda: _test_fetch(baseaddr))
 
-        curv1addr = plus.get_master_server_address(version=1)
-        _print(f'\nUsing V1 address: {curv1addr}')
+        _print('\nComparing local time to V2 server...')
+        _print_test_results(_test_v2_time)
 
         if plus.get_v1_account_state() == 'signed_in':
             _print('\nRunning V1 transaction...')
             _print_test_results(_test_v1_transaction)
         else:
             _print('\nSkipping V1 transaction (Not signed into V1).')
-
-        # V2 ping
-        baseaddr = plus.get_master_server_address(version=2)
-        _print(f'\nContacting V2 master-server ({baseaddr})...')
-        _print_test_results(lambda: _test_fetch(baseaddr))
-
-        _print('\nComparing local time to V2 server...')
-        _print_test_results(_test_v2_time)
 
         # Get V2 nearby zone
         with bui.app.net.zone_pings_lock:
@@ -336,7 +321,7 @@ def _run_diagnostics(weakwin: weakref.ref[NetTestingWindow]) -> None:
                 '\nDiagnostics complete. Everything looks good!',
                 color=(0, 1, 0),
             )
-    except Exception:
+    except Exception as exc:
         import traceback
 
         _print(
@@ -345,6 +330,9 @@ def _run_diagnostics(weakwin: weakref.ref[NetTestingWindow]) -> None:
             f'{traceback.format_exc()}',
             color=(1, 0, 0),
         )
+        # We're done with the exception, so strip its tracebacks to
+        # avoid reference cycles.
+        strip_exception_tracebacks(exc)
 
 
 def _dummy_success() -> None:
@@ -403,17 +391,17 @@ def _test_v1_transaction() -> None:
         raise RuntimeError(results[0])
 
 
+@dataclass
+class _V2CloudMessageResults:
+    errstr: str | None = None
+    send_time: float | None = None
+    response_time: float | None = None
+
+
 def _test_v2_cloud_message() -> None:
-    from dataclasses import dataclass
     import bacommon.cloud
 
-    @dataclass
-    class _Results:
-        errstr: str | None = None
-        send_time: float | None = None
-        response_time: float | None = None
-
-    results = _Results()
+    results = _V2CloudMessageResults()
 
     def _cb(response: bacommon.cloud.PingResponse | Exception) -> None:
         # Note: this runs in another thread so need to avoid exceptions.
@@ -463,24 +451,12 @@ def _test_v2_time() -> None:
 
 
 def _test_fetch(baseaddr: str) -> None:
-    # pylint: disable=consider-using-with
-    import urllib.request
 
-    assert bui.app.classic is not None
-    response = urllib.request.urlopen(
-        urllib.request.Request(
-            f'{baseaddr}/ping',
-            None,
-            {'User-Agent': bui.app.classic.legacy_user_agent_string},
-        ),
-        context=bui.app.net.sslcontext,
-        timeout=MAX_TEST_SECONDS,
-    )
-    if response.getcode() != 200:
-        raise RuntimeError(
-            f'Got unexpected response code {response.getcode()}.'
-        )
-    data = response.read()
+    upool = bui.app.net.urllib3pool
+    response = upool.request('GET', f'{baseaddr}/ping')
+    if response.status != 200:
+        raise RuntimeError(f'Got unexpected response code {response.status}.')
+    data = response.data
     if data != b'pong':
         raise RuntimeError('Got unexpected response data.')
 

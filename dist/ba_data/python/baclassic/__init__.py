@@ -11,14 +11,14 @@ designed in a more modular way.
 
 # ba_meta require api 9
 
-# Note: Code relying on classic should import things from here *only*
-# for type-checking and use the versions in ba*.app.classic at runtime;
-# that way type-checking will cleanly cover the classic-not-present case
-# (ba*.app.classic being None).
+# Note: Stuff in this module mostly exists for type-checking and docs
+# generation and should generally not be imported or used at runtime.
+# Generally all interaction with this feature-set should go through
+# `ba*.app.classic`.
+
 import logging
 
-# from efro.util import set_canonical_module_names
-
+from _baclassic import reload_hooks
 from baclassic._appmode import ClassicAppMode
 from baclassic._appsubsystem import ClassicAppSubsystem
 from baclassic._achievement import Achievement, AchievementSubsystem
@@ -40,6 +40,7 @@ __all__ = [
     'AchievementSubsystem',
     'show_display_item',
     'MusicPlayer',
+    'reload_hooks',
 ]
 
 # We want stuff here to show up as packagename.Foo instead of

@@ -29,6 +29,8 @@ if TYPE_CHECKING:
     from typing import Any
     from efro.dataclassio._base import IOAttrs
 
+# Use a single logger for all dataclassio stuff.
+logger = logging.getLogger('efro.dataclassio')
 
 # How deep we go when prepping nested types (basically for detecting
 # recursive types)
@@ -86,13 +88,14 @@ def will_ioprep[T](cls: type[T]) -> type[T]:
     In some cases (such as recursive types) we cannot use the @ioprepped
     decorator and must instead call ioprep() explicitly later. However,
     some of our custom pylint checking behaves differently when the
-    @ioprepped decorator is present, in that case requiring type annotations
-    to be present and not simply forward declared under an "if TYPE_CHECKING"
-    block. (since they are used at runtime).
+    @ioprepped decorator is present, in that case requiring type
+    annotations to be present and not simply forward declared under an
+    "if TYPE_CHECKING" block. (since they are used at runtime).
 
     The @will_ioprep decorator triggers the same pylint behavior
-    differences as @ioprepped (which are necessary for the later ioprep() call
-    to work correctly) but without actually running any prep itself.
+    differences as @ioprepped (which are necessary for the later
+    ioprep() call to work correctly) but without actually running any
+    prep itself.
     """
     return cls
 
@@ -170,8 +173,8 @@ class PrepSession:
         # happen explicitly at runtime so errors can be detected early
         # on.
         if not self.explicit:
-            logging.warning(
-                'efro.dataclassio: implicitly prepping dataclass: %s.'
+            logger.warning(
+                'Implicitly prepping dataclass: %s.'
                 ' It is highly recommended to explicitly prep dataclasses'
                 ' as soon as possible after definition (via'
                 ' efro.dataclassio.ioprep() or the'

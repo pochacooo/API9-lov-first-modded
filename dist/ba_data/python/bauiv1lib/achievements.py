@@ -16,6 +16,7 @@ class AchievementsWindow(bui.MainWindow):
         self,
         transition: str | None = 'in_right',
         origin_widget: bui.Widget | None = None,
+        auxiliary_style: bool = True,
     ):
         # pylint: disable=too-many-locals
         # pylint: disable=too-many-statements
@@ -28,7 +29,7 @@ class AchievementsWindow(bui.MainWindow):
         assert bui.app.classic is not None
         uiscale = bui.app.ui_v1.uiscale
 
-        self._width = 700 if uiscale is bui.UIScale.SMALL else 550
+        self._width = 800 if uiscale is bui.UIScale.SMALL else 550
         self._height = (
             450
             if uiscale is bui.UIScale.SMALL
@@ -40,7 +41,7 @@ class AchievementsWindow(bui.MainWindow):
         # screen shape at small ui scale.
         screensize = bui.get_virtual_screen_size()
         scale = (
-            2.7
+            2.4
             if uiscale is bui.UIScale.SMALL
             else 1.5 if uiscale is bui.UIScale.MEDIUM else 1.2
         )
@@ -60,10 +61,9 @@ class AchievementsWindow(bui.MainWindow):
         super().__init__(
             root_widget=bui.containerwidget(
                 size=(self._width, self._height),
-                toolbar_visibility=(
-                    'menu_minimal'
-                    if uiscale is bui.UIScale.SMALL
-                    else 'menu_full'
+                toolbar_visibility=('menu_full'),
+                toolbar_cancel_button_style=(
+                    'close' if auxiliary_style else 'back'
                 ),
                 scale=scale,
             ),
@@ -85,8 +85,12 @@ class AchievementsWindow(bui.MainWindow):
                 position=(50, yoffs - 48),
                 size=(60, 60),
                 scale=0.6,
-                label=bui.charstr(bui.SpecialChar.BACK),
-                button_type='backSmall',
+                label=bui.charstr(
+                    bui.SpecialChar.CLOSE
+                    if auxiliary_style
+                    else bui.SpecialChar.BACK
+                ),
+                button_type=None if auxiliary_style else 'backSmall',
                 on_activate_call=self.main_window_back,
             )
             bui.containerwidget(
@@ -96,27 +100,49 @@ class AchievementsWindow(bui.MainWindow):
         achievements = bui.app.classic.ach.achievements
         num_complete = len([a for a in achievements if a.complete])
 
-        txt_final = bui.Lstr(
-            resource='accountSettingsWindow.achievementProgressText',
-            subs=[
-                ('${COUNT}', str(num_complete)),
-                ('${TOTAL}', str(len(achievements))),
-            ],
-        )
-        self._title_text = bui.textwidget(
-            parent=self._root_widget,
-            position=(
-                self._width * 0.5,
-                yoffs - (42 if uiscale is bui.UIScale.SMALL else 30),
-            ),
-            size=(0, 0),
-            h_align='center',
-            v_align='center',
-            scale=0.6,
-            text=txt_final,
-            maxwidth=200,
-            color=bui.app.ui_v1.title_color,
-        )
+        # In small UI mode when the screen is narrow enough we need to
+        # go with a smaller title to avoid it overlapping with toolbar
+        # bits.
+        if uiscale is bui.UIScale.SMALL and target_width < 630:
+            self._title_text = bui.textwidget(
+                parent=self._root_widget,
+                position=(self._width * 0.5, yoffs - 42),
+                size=(0, 0),
+                h_align='center',
+                v_align='center',
+                scale=0.6,
+                text=bui.Lstr(
+                    value='${A}: ${C}/${T}',
+                    subs=[
+                        ('${A}', bui.Lstr(resource='achievementsText')),
+                        ('${C}', str(num_complete)),
+                        ('${T}', str(len(achievements))),
+                    ],
+                ),
+                maxwidth=86,
+                color=bui.app.ui_v1.title_color,
+            )
+        else:
+            self._title_text = bui.textwidget(
+                parent=self._root_widget,
+                position=(
+                    self._width * 0.5,
+                    yoffs - (42 if uiscale is bui.UIScale.SMALL else 30),
+                ),
+                size=(0, 0),
+                h_align='center',
+                v_align='center',
+                scale=0.6,
+                text=bui.Lstr(
+                    resource='accountSettingsWindow.achievementProgressText',
+                    subs=[
+                        ('${COUNT}', str(num_complete)),
+                        ('${TOTAL}', str(len(achievements))),
+                    ],
+                ),
+                maxwidth=180,
+                color=bui.app.ui_v1.title_color,
+            )
 
         self._scrollwidget = bui.scrollwidget(
             parent=self._root_widget,
@@ -133,13 +159,51 @@ class AchievementsWindow(bui.MainWindow):
                 left_widget=bui.get_special_widget('back_button'),
             )
 
+        # Add some blotches so our contents fades out as it approaches
+        # the bottom toolbar.
+        if uiscale is bui.UIScale.SMALL:
+            blotchwidth = 500.0
+            blotchheight = 200.0
+            bimg = bui.imagewidget(
+                parent=self._root_widget,
+                texture=bui.gettexture('uiAtlas'),
+                mesh_transparent=bui.getmesh('windowBGBlotch'),
+                position=(
+                    self._width * 0.5
+                    - scroll_width * 0.5
+                    + 60.0
+                    - blotchwidth * 0.5,
+                    scroll_bottom - blotchheight * 0.5,
+                ),
+                size=(blotchwidth, blotchheight),
+                color=(0.4, 0.37, 0.49),
+                # color=(1, 0, 0),
+            )
+            bui.widget(edit=bimg, depth_range=(0.9, 1.0))
+            bimg = bui.imagewidget(
+                parent=self._root_widget,
+                texture=bui.gettexture('uiAtlas'),
+                mesh_transparent=bui.getmesh('windowBGBlotch'),
+                position=(
+                    self._width * 0.5
+                    + scroll_width * 0.5
+                    - 60.0
+                    - blotchwidth * 0.5,
+                    scroll_bottom - blotchheight * 0.5,
+                ),
+                size=(blotchwidth, blotchheight),
+                color=(0.4, 0.37, 0.49),
+                # color=(1, 0, 0),
+            )
+            bui.widget(edit=bimg, depth_range=(0.9, 1.0))
+
         bui.containerwidget(
             edit=self._root_widget, cancel_button=self._back_button
         )
 
         incr = 36
         sub_width = scroll_width - 25
-        sub_height = 40 + len(achievements) * incr
+        sub_height = 85 + len(achievements) * incr
 
         eq_rsrc = 'coopSelectWindow.powerRankingPointsEqualsText'
         pts_rsrc = 'coopSelectWindow.powerRankingPointsText'

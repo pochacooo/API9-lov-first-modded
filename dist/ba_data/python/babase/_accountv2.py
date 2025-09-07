@@ -12,14 +12,14 @@ from typing import TYPE_CHECKING, assert_never
 from efro.error import CommunicationError
 from efro.call import CallbackSet
 from bacommon.login import LoginType
+
+from babase._logging import accountlog
 import _babase
 
 if TYPE_CHECKING:
     from typing import Any, Callable
 
     from babase._login import LoginAdapter, LoginInfo
-
-logger = logging.getLogger('ba.accountv2')
 
 
 class AccountV2Subsystem:
@@ -103,6 +103,12 @@ class AccountV2Subsystem:
         :meta private:
         """
         assert _babase.in_logic_thread()
+
+        # Inform the base layer of new names/etc.
+        if account is not None:
+            _babase.set_account_sign_in_state(True, account.tag)
+        else:
+            _babase.set_account_sign_in_state(False)
 
         # Fire any registered callbacks.
         for call in self.on_primary_account_changed_callbacks.getcalls():
@@ -280,7 +286,7 @@ class AccountV2Subsystem:
         # generally this means the user has explicitly signed in/out or
         # switched accounts within that back-end.
         if prev_state != new_state:
-            logger.debug(
+            accountlog.debug(
                 'Implicit state changed (%s -> %s);'
                 ' will update app sign-in state accordingly.',
                 prev_state,
@@ -324,7 +330,7 @@ class AccountV2Subsystem:
             if self._implicit_signed_in_adapter is None:
                 # If implicit back-end has signed out, we follow suit
                 # immediately; no need to wait for network connectivity.
-                logger.debug(
+                accountlog.debug(
                     'Signing out as result of implicit state change...',
                 )
                 plus.accounts.set_primary_credentials(None)
@@ -343,7 +349,7 @@ class AccountV2Subsystem:
                 # switching accounts via the back-end). NOTE: should
                 # test case where we don't have connectivity here.
                 if plus.cloud.is_connected():
-                    logger.debug(
+                    accountlog.debug(
                         'Signing in as result of implicit state change...',
                     )
                     self._implicit_signed_in_adapter.sign_in(
@@ -352,15 +358,15 @@ class AccountV2Subsystem:
                     )
                     self._implicit_state_changed = False
 
-                    # Once we've made a move here we don't want to
-                    # do any more automatic stuff.
+                    # Once we've made a move here we don't want to do
+                    # any more automatic stuff.
                     self._can_do_auto_sign_in = False
 
         if not self._can_do_auto_sign_in:
             return
 
-        # If we're not currently signed in, we have connectivity, and
-        # we have an available implicit login, auto-sign-in with it once.
+        # If we're not currently signed in, we have connectivity, and we
+        # have an available implicit login, auto-sign-in with it once.
         # The implicit-state-change logic above should keep things
         # mostly in-sync, but that might not always be the case due to
         # connectivity or other issues. We prefer to keep people signed
@@ -376,7 +382,7 @@ class AccountV2Subsystem:
             and not signed_in_v2
             and self._implicit_signed_in_adapter is not None
         ):
-            logger.debug(
+            accountlog.debug(
                 'Signing in due to on-launch-auto-sign-in...',
             )
             self._can_do_auto_sign_in = False  # Only ATTEMPT once
@@ -397,11 +403,11 @@ class AccountV2Subsystem:
         plus = _babase.app.plus
         assert plus is not None
 
-        # Make some noise on errors since the user knows a
-        # sign-in attempt is happening in this case (the 'explicit' part).
+        # Make some noise on errors since the user knows a sign-in
+        # attempt is happening in this case (the 'explicit' part).
         if isinstance(result, Exception):
-            # We expect the occasional communication errors;
-            # Log a full exception for anything else though.
+            # We expect the occasional communication errors; Log a full
+            # exception for anything else though.
             if not isinstance(result, CommunicationError):
                 logging.warning(
                     'Error on explicit accountv2 sign in attempt.',

@@ -18,9 +18,9 @@ class Locale(Enum):
 
     This list of locales is considered 'sacred' - we assume any values
     (and associated long values) added here remain in use out in the
-    wild indefinitely. If a locale value is superseded by a newer or
-    more specific one, the new value should be added and both new and
-    old should map to the same LocaleResolved value.
+    wild indefinitely. If a locale is superseded by a newer or more
+    specific one, the new locale should be added and both new and old
+    should map to the same :class:`LocaleResolved`.
     """
 
     # Locale values are not iso codes or anything specific; just
@@ -70,6 +70,7 @@ class Locale(Enum):
     UKRAINIAN = 'ukrn'
     VENETIAN = 'venetn'
     VIETNAMESE = 'viet'
+    KAZAKH = 'kazk'
 
     # Note: We use if-statement chains here so we can use assert_never()
     # to ensure we cover all existing values. But we cache lookups so
@@ -172,6 +173,8 @@ class Locale(Enum):
             return 'Venetian'
         if self is cls.VIETNAMESE:
             return 'Vietnamese'
+        if self is cls.KAZAKH:
+            return 'Kazakh'
 
         # Make sure we've covered all cases.
         assert_never(self)
@@ -191,6 +194,111 @@ class Locale(Enum):
             return fromvals[value]
         except KeyError as exc:
             raise ValueError(f'Invalid long value "{value}"') from exc
+
+    @cached_property
+    def description(self) -> str:
+        """A human readable description for the locale.
+
+        Intended as instructions to humans or AI for translating. For
+        most locales this is simply the language name, but for special
+        ones like pirate-speak it may include instructions.
+        """
+        # pylint: disable=too-many-branches
+        # pylint: disable=too-many-return-statements
+
+        cls = type(self)
+
+        if self is cls.ENGLISH:
+            return 'English'
+        if self is cls.CHINESE:
+            return 'Chinese'
+        if self is cls.CHINESE_TRADITIONAL:
+            return 'Chinese (Traditional)'
+        if self is cls.CHINESE_SIMPLIFIED:
+            return 'Chinese (Simplified)'
+        if self is cls.PORTUGUESE:
+            return 'Portuguese'
+        if self is cls.PORTUGUESE_PORTUGAL:
+            return 'Portuguese (Portugal)'
+        if self is cls.PORTUGUESE_BRAZIL:
+            return 'Portuguese (Brazil)'
+        if self is cls.ARABIC:
+            return 'Arabic'
+        if self is cls.BELARUSSIAN:
+            return 'Belarussian'
+        if self is cls.CROATIAN:
+            return 'Croatian'
+        if self is cls.CZECH:
+            return 'Czech'
+        if self is cls.DANISH:
+            return 'Danish'
+        if self is cls.DUTCH:
+            return 'Dutch'
+        if self is cls.PIRATE_SPEAK:
+            return 'Pirate-Speak (English as spoken by a pirate)'
+        if self is cls.ESPERANTO:
+            return 'Esperanto'
+        if self is cls.FILIPINO:
+            return 'Filipino'
+        if self is cls.FRENCH:
+            return 'French'
+        if self is cls.GERMAN:
+            return 'German'
+        if self is cls.GIBBERISH:
+            return (
+                'Gibberish (imaginary words vaguely' ' reminiscent of English)'
+            )
+        if self is cls.GREEK:
+            return 'Greek'
+        if self is cls.HINDI:
+            return 'Hindi'
+        if self is cls.HUNGARIAN:
+            return 'Hungarian'
+        if self is cls.INDONESIAN:
+            return 'Indonesian'
+        if self is cls.ITALIAN:
+            return 'Italian'
+        if self is cls.KOREAN:
+            return 'Korean'
+        if self is cls.MALAY:
+            return 'Malay'
+        if self is cls.PERSIAN:
+            return 'Persian'
+        if self is cls.POLISH:
+            return 'Polish'
+        if self is cls.ROMANIAN:
+            return 'Romanian'
+        if self is cls.RUSSIAN:
+            return 'Russian'
+        if self is cls.SERBIAN:
+            return 'Serbian'
+        if self is cls.SPANISH:
+            return 'Spanish'
+        if self is cls.SPANISH_LATIN_AMERICA:
+            return 'Spanish (Latin America)'
+        if self is cls.SPANISH_SPAIN:
+            return 'Spanish (Spain)'
+        if self is cls.SLOVAK:
+            return 'Slovak'
+        if self is cls.SWEDISH:
+            return 'Swedish'
+        if self is cls.TAMIL:
+            return 'Tamil'
+        if self is cls.THAI:
+            return 'Thai'
+        if self is cls.TURKISH:
+            return 'Turkish'
+        if self is cls.UKRAINIAN:
+            return 'Ukrainian'
+        if self is cls.VENETIAN:
+            return 'Venetian'
+        if self is cls.VIETNAMESE:
+            return 'Vietnamese'
+        if self is cls.KAZAKH:
+            return 'Kazakh'
+
+        # Make sure we've covered all cases.
+        assert_never(self)
 
     @cached_property
     def resolved(self) -> LocaleResolved:
@@ -279,6 +387,8 @@ class Locale(Enum):
             return R.VENETIAN
         if self is cls.VIETNAMESE:
             return R.VIETNAMESE
+        if self is cls.KAZAKH:
+            return R.KAZAKH
 
         # Make sure we're covering all cases.
         assert_never(self)
@@ -333,6 +443,7 @@ class LocaleResolved(Enum):
     UKRAINIAN = 'ukrn'
     VENETIAN = 'venetn'
     VIETNAMESE = 'viet'
+    KAZAKH = 'kazk'
 
     # Note: We use if-statement chains here so we can use assert_never()
     # to ensure we cover all existing values. But we cache lookups so
@@ -433,6 +544,8 @@ class LocaleResolved(Enum):
             return Locale.VENETIAN
         if self is cls.VIETNAMESE:
             return Locale.VIETNAMESE
+        if self is cls.KAZAKH:
+            return Locale.KAZAKH
 
         # Make sure we're covering all cases.
         assert_never(self)
@@ -532,6 +645,8 @@ class LocaleResolved(Enum):
             val = 'vec'
         elif self is cls.VIETNAMESE:
             val = 'vi'
+        elif self is cls.KAZAKH:
+            val = 'kk'
         else:
             # Make sure we cover all cases.
             assert_never(self)
@@ -627,19 +742,20 @@ class LocaleResolved(Enum):
             if not extras or any(
                 val in extras
                 for val in [
-                    '419',
-                    'mx',
-                    'ar',
-                    'co',
-                    'cl',
-                    'pe',
-                    've',
-                    'cr',
-                    'pr',
-                    'do',
-                    'uy',
-                    'ec',
-                    'pa',
+                    '419',  # Latin America / Carribean region
+                    'mx',  # Mexico
+                    'ar',  # Argentina
+                    'co',  # Colombia
+                    'cl',  # Chile
+                    'pe',  # Peru
+                    've',  # Venezuela
+                    'cr',  # Costa Rica
+                    'pr',  # Puerto Rico
+                    'do',  # Dominican Republic
+                    'uy',  # Uruguay
+                    'ec',  # Ecuador
+                    'pa',  # Panama
+                    'bo',  # Bolivia
                 ]
             ):
                 return cls.SPANISH_LATIN_AMERICA
@@ -656,6 +772,10 @@ class LocaleResolved(Enum):
                 fallback.name,
             )
             return fallback
+        if lang == 'c':
+            # The C.UTF-8 is a minimal locale defined by POSIX we
+            # sometimes run into.
+            return cls.ENGLISH
         if lang == 'ar':
             return cls.ARABIC
         if lang == 'be':
@@ -716,6 +836,8 @@ class LocaleResolved(Enum):
             return cls.VENETIAN
         if lang == 'vi':
             return cls.VIETNAMESE
+        if lang == 'kk':
+            return cls.KAZAKH
 
         # Make noise if we come across something unexpected so we can
         # add it.

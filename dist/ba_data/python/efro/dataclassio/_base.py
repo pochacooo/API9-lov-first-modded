@@ -8,7 +8,7 @@ import dataclasses
 import typing
 import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, get_args, override
+from typing import TYPE_CHECKING, get_args, override, final
 
 # noinspection PyProtectedMember
 from typing import _AnnotatedAlias  # type: ignore
@@ -111,6 +111,27 @@ class IOMultiType[EnumT: Enum]:
         """Return a specific subclass given a type-id."""
         raise NotImplementedError()
 
+    @final
+    @classmethod
+    def get_type_cached(cls, type_id: EnumT) -> type[Self]:
+        """Version of :meth:`get_type()` with caching.
+
+        Generally end-users of a multi-type class should use this
+        instead of calling :meth:`get_type()` directly. It lazily caches
+        looked up types so can be significantly more efficient with
+        large multitypes and repeat lookups.
+        """
+        storage: dict[EnumT, type[Self]] | None = getattr(
+            cls, '_iomt_tp_cache', None
+        )
+        if storage is None:
+            storage = {}
+            setattr(cls, '_iomt_tp_cache', storage)
+        tp: type[Self] | None = storage.get(type_id)
+        if tp is None:
+            tp = storage[type_id] = cls.get_type(type_id)
+        return tp
+
     @classmethod
     def get_type_id(cls) -> EnumT:
         """Return the type-id for this subclass."""
@@ -150,49 +171,22 @@ class IOMultiType[EnumT: Enum]:
 
 
 class IOAttrs:
-    """For specifying io behavior in annotations.
+    """Used to customize dataclassio behavior for particular fields.
 
-    :param storagename: If passed, is the name used when storing to
-        json/etc.
+    Example: specify that 'value2' will be stored as 'v2'::
 
-    :param store_default: Can be set to False to avoid writing values
-        when equal to the default value. Note that this requires the
-        dataclass field to define a default or default_factory or for
-        its IOAttrs to define a soft_default value.
+        @ioprepped
+        @dataclass
+        class MyData:
+            value1: int = 1
+            value2: Annotated[int, IOAttrs('v2')] = 2
 
-    :param whole_days: If True, requires datetime values to be exactly
-        on day boundaries (see efro.util.utc_today()).
+        >>> print(dataclass_to_dict(MyData()))
 
-    :param whole_hours: If True, requires datetime values to lie exactly
-        on hour boundaries (see efro.util.utc_this_hour()).
+        # Output: {'value1': 1, 'v2': 2}
 
-    :param whole_minutes: If True, requires datetime values to lie
-        exactly on minute boundaries (see efro.util.utc_this_minute()).
-
-    :param soft_default: If passed, injects a default value into
-        dataclass instantiation when the field is not present in the
-        input data. This allows dataclasses to add new non-optional
-        fields while gracefully 'upgrading' old data. Note that when a
-        soft_default is present it will take precedence over field
-        defaults when determining whether to store a value for a field
-        with store_default=False (since the soft_default value is what
-        we'll get when reading that same data back in when the field is
-        omitted).
-
-    :param soft_default_factory: Is similar to 'default_factory' in
-        dataclass fields; it should be used instead of 'soft_default'
-        for mutable types such as lists to prevent a single default
-        object from unintentionally changing over time.
-
-    :param enum_fallback: If provided, specifies an enum value that can
-        be substituted in the case of unrecognized input values. This
-        can allow newer data to remain loadable in older environments.
-        Note that 'lossy' must be enabled in the top level load call for
-        this to apply, since it can fundamentally modify data.
-
-    :param multiline: If provided for a string, specifies whether multi
-        line values are allowed/expected. Can be referenced when creating
-        UI for editing the value.
+    Providing fixed storagenames for all fields can allow the freedom to
+    rename fields later without worrying about breaking existing data.
     """
 
     # A sentinel object to detect if a parameter is supplied or not. Use
@@ -203,16 +197,64 @@ class IOAttrs:
         def __repr__(self) -> str:
             return '<MISSING>'
 
+    #: :meta private:
     MISSING = _MissingType()
 
+    #: If passed, is the name used when storing to json/etc.
     storagename: str | None = None
+
+    #: Can be set to ``False`` to avoid writing values when equal to the
+    #: default value. Note that this requires the dataclass field to
+    #: define a ``default`` or ``default_factory`` or for its ``IOAttrs``
+    #: to define a ``soft_default`` value.
     store_default: bool = True
+
+    #: If True, requires datetime values to be exactly on day boundaries
+    #: (see :meth:`efro.util.utc_today()`).
     whole_days: bool = False
+
+    #: If ``True``, requires datetime values to lie exactly on hour
+    #: boundaries (see :meth:`efro.util.utc_this_hour()`).
     whole_hours: bool = False
+
+    #: If ``True``, requires ``datetime.datetime`` values to lie exactly on
+    #: minute boundaries (see :meth:`efro.util.utc_this_minute()`).
     whole_minutes: bool = False
+
+    #: If ``True``, values of type ``datetime.datetime`` (in json codec)
+    #: and ``datetime.timedelta`` (in all codecs) will be stored as single
+    #: float timestamp/seconds values instead of the default list of
+    #: ints. This is more concise but introduces the possibility of
+    #: restored values varying slightly from originals due to
+    #: floating-point precision limitations.
+    float_times: bool = False
+
+    #: If passed, injects a default value into dataclass instantiation
+    #: when the field is not present in the input data. This allows
+    #: dataclasses to add new non-optional fields while gracefully
+    #: 'upgrading' old data. Note that when a soft-default is present it
+    #: will take precedence over field defaults when determining whether
+    #: to store a value for a field with ``store_default=False`` (since
+    #: the soft_default value is what we'll get when reading that same
+    #: data back in when the field is omitted).
     soft_default: Any = MISSING
+
+    #: Is similar to 'default_factory' in dataclass fields; it should be
+    #: used instead of 'soft_default' for mutable types such as lists to
+    #: prevent a single default object from unintentionally changing over
+    #: time.
     soft_default_factory: Callable[[], Any] | _MissingType = MISSING
+
+    #: If provided, specifies an enum value that can be substituted in
+    #: the case of unrecognized input values. This can allow newer data
+    #: to remain loadable in older environments. Note that 'lossy' must
+    #: be enabled in the top level load call for this to apply, since it
+    #: can fundamentally modify data.
     enum_fallback: Enum | None = None
+
+    #: If provided for a string, hints as to whether multi line values
+    #: are allowed/expected. Can be referenced when creating UI for
+    #: editing the value. Does not actually affect value input/output.
     multiline: bool | None = None
 
     def __init__(
@@ -223,6 +265,7 @@ class IOAttrs:
         whole_days: bool = whole_days,
         whole_hours: bool = whole_hours,
         whole_minutes: bool = whole_minutes,
+        float_times: bool = float_times,
         soft_default: Any = MISSING,
         soft_default_factory: Callable[[], Any] | _MissingType = MISSING,
         enum_fallback: Enum | None = None,
@@ -241,6 +284,8 @@ class IOAttrs:
             self.whole_hours = whole_hours
         if whole_minutes != cls.whole_minutes:
             self.whole_minutes = whole_minutes
+        if float_times != cls.float_times:
+            self.float_times = float_times
         if soft_default is not cls.soft_default:
             # Do what dataclasses does with its default types and
             # tell the user to use factory for mutable ones.
@@ -313,6 +358,15 @@ class IOAttrs:
                 raise ValueError(
                     f'Value {value} at {fieldpath}' f' is not a whole minute.'
                 )
+
+
+class TypeNotPresentError(TypeError):
+    """Used to communicate non-loadable multitype classes.
+
+    This allows lossy loading of multitype objects in environments where
+    their type enum is known but their actual class is not available. A
+    IOMultiType's get_type() method should raise this in such cases.
+    """
 
 
 def _raise_type_error(
@@ -402,6 +456,8 @@ def parse_annotated(anntype: Any) -> tuple[Any, IOAttrs | None]:
     return anntype, ioattrs
 
 
+# Note to self: this logic seems a bit redundant with _Inputter.run();
+# should do a cleanup pass.
 def _get_multitype_type(
     cls: type[IOMultiType], fieldpath: str, val: Any
 ) -> type[Any]:
@@ -417,4 +473,4 @@ def _get_multitype_type(
         )
     id_enum_type = cls.get_type_id_type()
     id_enum = id_enum_type(id_val)
-    return cls.get_type(id_enum)
+    return cls.get_type_cached(id_enum)
