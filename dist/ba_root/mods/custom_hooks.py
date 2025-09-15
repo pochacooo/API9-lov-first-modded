@@ -446,3 +446,11 @@ def on_classic_app_mode_active():
     _bascenev1.set_transparent_kickvote(settings["ShowKickVoteStarterName"])
     _bascenev1.set_kickvote_msg_type(settings["KickVoteMsgType"])
     _bascenev1.hide_player_device_id(settings["Anti-IdRevealer"])
+
+
+def bcs_verify_client_account_ip(account_id: str, ip: str, client_id: int) -> str | None:
+    """Verify a client account ID and IP address.
+    """
+    if settings["mfa"]["enable"]:
+        _thread.start_new_thread(servercheck.account_check,
+                                 (account_id, ip, client_id))
