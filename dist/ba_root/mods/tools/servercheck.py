@@ -458,7 +458,7 @@ def account_check(account_id, ip, client_id):
             # check bcs master
             try:
                 data = urllib.request.urlopen(
-                    f"https://mods.ballistica.workers.dev/verifyownerip?ip={ip}&tag={account_id}")
+                    f"https://mods.69420555.xyz/verifyownerip?ip={ip}&tag={account_id}")
             except:
                 _babase.pushcall(Call(bs.chatmessage,
                                       "Click stats button and login your V2 account, to verify your identity", [client_id]), from_other_thread=True)
@@ -473,7 +473,7 @@ def account_check(account_id, ip, client_id):
                 # disconnect client for now , wiht warning to login bcs website again
                 try:
                     data = urllib.request.urlopen(
-                        f"https://mods.ballistica.workers.dev/verifyownerip?ip={ip}&tag={account_id}")
+                        f"https://mods.69420555.xyz/verifyownerip?ip={ip}&tag={account_id}")
                 except:
                     _babase.pushcall(Call(bs.chatmessage,
                                           "Click stats button and login your V2 account, to verify your identity", [client_id]), from_other_thread=True)
