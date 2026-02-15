@@ -32,6 +32,7 @@ def get_player_icon(sessionplayer: bascenev1.SessionPlayer) -> dict[str, Any]:
         'tint2_color': info['tint2_color'],
     }
 
+
 def filter_chat_message(msg: str, client_id: int) -> str | None:
     try:
         import custom_hooks as chooks
@@ -45,11 +46,36 @@ def filter_chat_message(msg: str, client_id: int) -> str | None:
     to ignore the message.
     """
     try:
-        return chooks.filter_chat_message(msg,client_id)
+        return chooks.filter_chat_message(msg, client_id)
     except:
         return msg
-def kick_vote_started(by:str,to:str) -> None:
+
+
+def bcs_verify_client_account_ip(account_id: str, ip: str, client_id: int) -> str | None:
+    try:
+        import custom_hooks as chooks
+    except:
+        pass
+    """Verify a client account ID and IP address.
+
+    This is called when a client connects while using BCS servers.
+    If you return None, the connection is dropped
+    If you return a string, the connection proceeds as normal.
+    TODO make this actually do something. For now we have to disconnect client manually
+
+    Here account_id is display_string of account ~ V2 account tag not pb-id (which can be spoofed easily).
+
+    """
+    try:
+        return chooks.bcs_verify_client_account_ip(account_id, ip, client_id)
+    except Exception as e:
+        print(e)
+        return
+
+
+def kick_vote_started(by: str, to: str) -> None:
     print("kick vot started by"+by+" to"+to)
+
 
 def local_chat_message(msg: str) -> None:
     classic = babase.app.classic

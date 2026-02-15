@@ -15,7 +15,7 @@ cLastIdle = 0
 
 class checkIdle(object):
     def start(self):
-        self.t1 = bs.AppTimer(2, babase.Call(self.check), repeat=True)
+        self.t1 = babase.AppTimer(2, babase.Call(self.check), repeat=True)
         self.lobbies = {}
 
     def check(self):
@@ -55,8 +55,8 @@ class checkIdle(object):
                     if lobby_afk in range(INLOBBY_TIME, INLOBBY_TIME + 10):
                         bs.broadcastmessage("Join game within " + str(
                             INLOBBY_TIME + 10 - lobby_afk) + " secs",
-                                             color=(1, 0, 0), transient=True,
-                                             clients=[player['client_id']])
+                            color=(1, 0, 0), transient=True,
+                            clients=[player['client_id']])
                     if lobby_afk > INLOBBY_TIME + 10:
                         bs.disconnect_client(player['client_id'], 0)
             # clean the lobbies dict
@@ -69,4 +69,4 @@ class checkIdle(object):
         for player in bs.get_game_roster():
             if player["account_id"] == pbid:
                 bs.broadcastmessage(msg, color=(1, 0, 0), transient=True,
-                                     clients=[player['client_id']])
+                                    clients=[player['client_id']])

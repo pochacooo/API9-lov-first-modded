@@ -83,7 +83,6 @@ def animate(
     # FIXME: Even if we are looping we should have a way to die once we
     #  get disconnected.
     if not loop:
-        # noinspection PyUnresolvedReferences
         _bascenev1.timer(
             (int(mult * items[-1][0]) + 1000) / 1000.0, curve.delete
         )
@@ -146,8 +145,6 @@ def animate_array(
         # If we're not looping, set a timer to kill this
         # curve after its done its job.
         if not loop:
-            # (PyCharm seems to think item is a float, not a tuple)
-            # noinspection PyUnresolvedReferences
             _bascenev1.timer(
                 (int(mult * items[-1][0]) + 1000) / 1000.0,
                 curve.delete,
@@ -159,17 +156,19 @@ def animate_array(
     # FIXME: Even if we are looping we should have a way to die
     #  once we get disconnected.
     if not loop:
-        # (PyCharm seems to think item is a float, not a tuple)
-        # noinspection PyUnresolvedReferences
         _bascenev1.timer(
             (int(mult * items[-1][0]) + 1000) / 1000.0, combine.delete
         )
 
 
 def show_damage_count(
-    damage: str, position: Sequence[float], direction: Sequence[float]
+    damage: str,
+    position: Sequence[float],
+    direction: Sequence[float],
+    dead: bool = False,
 ) -> None:
     """Pop up a damage count at a position in space."""
+    # pylint: disable=too-many-locals
     lifespan = 1.0
     app = babase.app
 
@@ -186,7 +185,7 @@ def show_damage_count(
             'h_align': 'center',
             'flatness': 1.0,
             'shadow': 1.0 if do_big else 0.7,
-            'color': (1, 0.25, 0.25, 1),
+            'color': (0.2, 0.2, 0.2, 1) if dead else (1, 0.25, 0.25, 1),
             'scale': 0.015 if do_big else 0.01,
         },
     )

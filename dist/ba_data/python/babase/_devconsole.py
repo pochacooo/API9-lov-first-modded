@@ -14,6 +14,19 @@ if TYPE_CHECKING:
     from typing import Callable, Any, Literal
 
 
+class DevConsoleButtonDef:
+    """A barebones way to define a custom button for the dev console.
+
+    Note that a :class:`DevConsoleTab` should use its
+    :meth:`DevConsoleTab.button()` method to create buttons; this is
+    instead for allowing basic customization.
+    """
+
+    def __init__(self, name: str, call: Callable[[], Any]) -> None:
+        self.name = name
+        self.call = call
+
+
 class DevConsoleTab:
     """Base class for a :class:`~babase.DevConsoleSubsystem` tab."""
 
@@ -80,11 +93,12 @@ class DevConsoleTab:
         h_align: Literal['left', 'center', 'right'] = 'center',
         v_align: Literal['top', 'center', 'bottom', 'none'] = 'center',
         scale: float = 1.0,
+        style: Literal['normal', 'faded'] = 'normal',
     ) -> None:
         """Add a button to the tab being refreshed."""
         assert _babase.app.devconsole.is_refreshing
         _babase.dev_console_add_text(
-            text, pos[0], pos[1], h_anchor, h_align, v_align, scale
+            text, pos[0], pos[1], h_anchor, h_align, v_align, scale, style
         )
 
     def python_terminal(self) -> None:
@@ -154,12 +168,18 @@ class DevConsoleSubsystem:
             DevConsoleTabEntry('Python', DevConsoleTabPython),
             DevConsoleTabEntry('AppModes', DevConsoleTabAppModes),
             DevConsoleTabEntry('UI', DevConsoleTabUI),
-            DevConsoleTabEntry('Logging', DevConsoleTabLogging),
+            DevConsoleTabEntry('LogLevels', DevConsoleTabLogging),
         ]
         if os.environ.get('BA_DEV_CONSOLE_TEST_TAB', '0') == '1':
             self.tabs.append(DevConsoleTabEntry('Test', DevConsoleTabTest))
         self.is_refreshing = False
         self._tab_instances: dict[str, DevConsoleTab] = {}
+
+    def save_tab(self, tabname: str) -> None:
+        """Called by the C++ layer when we should store tab to config."""
+        cfg = _babase.app.config
+        cfg['Dev Console Tab'] = tabname
+        cfg.commit()
 
     def do_refresh_tab(self, tabname: str) -> None:
         """Called by the C++ layer when a tab should be filled out.

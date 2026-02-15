@@ -42,8 +42,10 @@ class StoreBrowserWindow(bui.MainWindow):
         self,
         transition: str | None = 'in_right',
         origin_widget: bui.Widget | None = None,
+        *,
         show_tab: StoreBrowserWindow.TabID | None = None,
         minimal_toolbars: bool = False,
+        auxiliary_style: bool = True,
     ):
         # pylint: disable=too-many-statements
         # pylint: disable=too-many-locals
@@ -72,7 +74,6 @@ class StoreBrowserWindow(bui.MainWindow):
             else 700 if uiscale is bui.UIScale.MEDIUM else 800
         )
         self._current_tab: StoreBrowserWindow.TabID | None = None
-        # extra_top = 30 if uiscale is bui.UIScale.SMALL else 0
 
         self.request: Any = None
         self._r = 'store'
@@ -109,6 +110,9 @@ class StoreBrowserWindow(bui.MainWindow):
                     if (uiscale is bui.UIScale.SMALL or minimal_toolbars)
                     else 'menu_full'
                 ),
+                toolbar_cancel_button_style=(
+                    'close' if auxiliary_style else 'back'
+                ),
                 scale=scale,
             ),
             transition=transition,
@@ -119,12 +123,15 @@ class StoreBrowserWindow(bui.MainWindow):
 
         self._back_button = btn = bui.buttonwidget(
             parent=self._root_widget,
+            id=f'{self.main_window_id_prefix}|back',
             position=(70, yoffs - 37),
             size=(60, 60),
             scale=1.1,
             autoselect=True,
-            label=bui.charstr(SpecialChar.BACK),
-            button_type='backSmall',
+            label=bui.charstr(
+                SpecialChar.CLOSE if auxiliary_style else SpecialChar.BACK
+            ),
+            button_type=None if auxiliary_style else 'backSmall',
             on_activate_call=self.main_window_back,
         )
 
@@ -142,6 +149,7 @@ class StoreBrowserWindow(bui.MainWindow):
         ):
             bui.buttonwidget(
                 parent=self._root_widget,
+                id=f'{self.main_window_id_prefix}|restorepurchases',
                 position=(self._width * 0.5 - 70, 16),
                 size=(230, 50),
                 scale=0.65,
@@ -194,6 +202,7 @@ class StoreBrowserWindow(bui.MainWindow):
         self._tab_row = TabRow(
             self._root_widget,
             tabs_def,
+            idprefix=self.main_window_id_prefix,
             size=(self._scroll_width - 2.0 * tab_inset, 50),
             pos=(
                 self._width * 0.5 - self._scroll_width * 0.5 + tab_inset,
@@ -292,12 +301,15 @@ class StoreBrowserWindow(bui.MainWindow):
                 right_widget=bui.get_special_widget('tickets_meter'),
             )
 
-        # self._scroll_width = self._width - scroll_buffer_h
-        # self._scroll_height = self._height - 180
-
         self._scrollwidget: bui.Widget | None = None
         self._status_textwidget: bui.Widget | None = None
-        self._restore_state()
+
+        # Restore/set tab.
+        try:
+            current_tab = self.TabID(bui.app.config.get('Store Tab'))
+        except ValueError:
+            current_tab = self.TabID.CHARACTERS
+        self._set_tab(current_tab)
 
     def _restore_purchases(self) -> None:
         from bauiv1lib.account.signin import show_sign_in_prompt
@@ -372,8 +384,8 @@ class StoreBrowserWindow(bui.MainWindow):
             border_opacity=0.4,
         )
 
-        # NOTE: this stuff is modified by the _Store class.
-        # Should maybe clean that up.
+        # NOTE: this stuff is modified by the _Store class. Should maybe
+        # clean that up.
         self.button_infos = {}
         self.update_buttons_timer = None
 
@@ -391,22 +403,8 @@ class StoreBrowserWindow(bui.MainWindow):
             maxwidth=self._scroll_width * 0.9,
         )
 
-        class _Request:
-            def __init__(self, window: StoreBrowserWindow):
-                self._window = weakref.ref(window)
-                data = {'tab': tab_id.value}
-                bui.apptimer(0.1, bui.WeakCall(self._on_response, data))
-
-            def _on_response(self, data: dict[str, Any] | None) -> None:
-                # FIXME: clean this up.
-                # pylint: disable=protected-access
-                window = self._window()
-                if window is not None and (window.request is self):
-                    window.request = None
-                    window._on_response(data)
-
         # Kick off a server request.
-        self.request = _Request(self)
+        self.request = _Request(self, tab_id)
 
     # Actually start the purchase locally.
     def _purchase_check_result(
@@ -517,6 +515,8 @@ class StoreBrowserWindow(bui.MainWindow):
 
         plus = bui.app.plus
         assert plus is not None
+        classic = bui.app.classic
+        assert classic is not None
 
         # Prevent pressing buy within a few seconds of the last press
         # (gives the buttons time to disable themselves and whatnot).
@@ -527,7 +527,7 @@ class StoreBrowserWindow(bui.MainWindow):
         ):
             bui.getsound('error').play()
         else:
-            if plus.get_v1_account_state() != 'signed_in':
+            if plus.accounts.primary is None:
                 show_sign_in_prompt()
             else:
                 self._last_buy_time = curtime
@@ -553,7 +553,7 @@ class StoreBrowserWindow(bui.MainWindow):
                     price = plus.get_v1_account_misc_read_val(
                         'price.' + item, None
                     )
-                    our_tickets = plus.get_v1_account_ticket_count()
+                    our_tickets = classic.tickets
                     if price is not None and our_tickets < price:
                         bui.getsound('error').play()
                         bui.screenmessage(
@@ -612,6 +612,8 @@ class StoreBrowserWindow(bui.MainWindow):
 
         plus = bui.app.plus
         assert plus is not None
+        classic = bui.app.classic
+        assert classic is not None
 
         if not self._root_widget:
             return
@@ -643,7 +645,8 @@ class StoreBrowserWindow(bui.MainWindow):
                 assert bui.app.classic is not None
                 purchased = bui.app.classic.accounts.have_pro()
             else:
-                purchased = plus.get_v1_account_product_purchased(b_type)
+                assert bui.app.classic is not None
+                purchased = b_type in bui.app.classic.purchases
 
             sale_opacity = 0.0
             sale_title_text: str | bui.Lstr = ''
@@ -699,8 +702,8 @@ class StoreBrowserWindow(bui.MainWindow):
                     )
 
                     # Color the button differently if we cant afford this.
-                    if plus.get_v1_account_state() == 'signed_in':
-                        if plus.get_v1_account_ticket_count() < price:
+                    if plus.accounts.primary is not None:
+                        if classic.tickets < price:
                             color = (0.6, 0.61, 0.6)
                     price_text = bui.charstr(bui.SpecialChar.TICKET) + str(
                         plus.get_v1_account_misc_read_val(
@@ -789,10 +792,6 @@ class StoreBrowserWindow(bui.MainWindow):
                 )
 
     def _on_response(self, data: dict[str, Any] | None) -> None:
-        # pylint: disable=too-many-statements
-
-        assert bui.app.classic is not None
-        cstore = bui.app.classic.store
 
         # clear status text..
         if self._status_textwidget:
@@ -814,340 +813,6 @@ class StoreBrowserWindow(bui.MainWindow):
             )
         else:
 
-            class _Store:
-                def __init__(
-                    self,
-                    store_window: StoreBrowserWindow,
-                    sdata: dict[str, Any],
-                    width: float,
-                ):
-                    self._store_window = store_window
-                    self._width = width
-                    store_data = cstore.get_store_layout()
-                    self._tab = sdata['tab']
-                    self._sections = copy.deepcopy(store_data[sdata['tab']])
-                    self._height: float | None = None
-
-                    assert bui.app.classic is not None
-                    uiscale = bui.app.ui_v1.uiscale
-
-                    # Pre-calc a few things and add them to store-data.
-                    for section in self._sections:
-                        if self._tab == 'characters':
-                            dummy_name = 'characters.foo'
-                        elif self._tab == 'extras':
-                            dummy_name = 'pro'
-                        elif self._tab == 'maps':
-                            dummy_name = 'maps.foo'
-                        elif self._tab == 'icons':
-                            dummy_name = 'icons.foo'
-                        else:
-                            dummy_name = ''
-                        section['button_size'] = (
-                            cstore.get_store_item_display_size(dummy_name)
-                        )
-                        section['v_spacing'] = (
-                            -25
-                            if (
-                                self._tab == 'extras'
-                                and uiscale is bui.UIScale.SMALL
-                            )
-                            else -17 if self._tab == 'characters' else 0
-                        )
-                        if 'title' not in section:
-                            section['title'] = ''
-                        section['x_offs'] = 0.0
-                        # section['x_offs'] = (
-                        #     130
-                        #     if self._tab == 'extras'
-                        #     else 270 if self._tab == 'maps' else 0
-                        # )
-                        section['y_offs'] = (
-                            20
-                            if (
-                                self._tab == 'extras'
-                                and uiscale is bui.UIScale.SMALL
-                                and bui.app.config.get('Merch Link')
-                            )
-                            else (
-                                55
-                                if (
-                                    self._tab == 'extras'
-                                    and uiscale is bui.UIScale.SMALL
-                                )
-                                else -20 if self._tab == 'icons' else 0
-                            )
-                        )
-
-                def instantiate(
-                    self, scrollwidget: bui.Widget, tab_button: bui.Widget
-                ) -> None:
-                    """Create the store."""
-                    # pylint: disable=too-many-locals
-                    # pylint: disable=too-many-branches
-                    # pylint: disable=too-many-nested-blocks
-                    from bauiv1lib.store.item import (
-                        instantiate_store_item_display,
-                    )
-
-                    title_spacing = 40
-                    button_border = 20
-                    button_spacing = 4
-                    boffs_h = 0.0
-                    self._height = 80.0
-
-                    # Calc total height.
-                    for i, section in enumerate(self._sections):
-                        if section['title'] != '':
-                            assert self._height is not None
-                            self._height += title_spacing
-                        b_width, b_height = section['button_size']
-                        b_count = len(section['items'])
-                        b_column_count = min(
-                            b_count,
-                            int(
-                                math.floor(
-                                    self._width / (b_width + button_spacing)
-                                )
-                            ),
-                        )
-                        b_row_count = int(math.ceil(b_count / b_column_count))
-                        b_height_total = (
-                            2 * button_border
-                            + b_row_count * b_height
-                            + (b_row_count - 1) * section['v_spacing']
-                        )
-                        self._height += b_height_total
-
-                    assert self._height is not None
-                    cnt2 = bui.containerwidget(
-                        parent=scrollwidget,
-                        scale=1.0,
-                        size=(self._width, self._height),
-                        background=False,
-                        claims_left_right=True,
-                        selection_loops_to_parent=True,
-                    )
-                    v = self._height - 20
-
-                    if self._tab == 'characters':
-                        txt = bui.Lstr(
-                            resource='store.howToSwitchCharactersText',
-                            subs=[
-                                (
-                                    '${SETTINGS}',
-                                    bui.Lstr(resource='inventoryText'),
-                                ),
-                                (
-                                    '${PLAYER_PROFILES}',
-                                    bui.Lstr(
-                                        resource=(
-                                            'playerProfilesWindow.titleText'
-                                        )
-                                    ),
-                                ),
-                            ],
-                        )
-                        bui.textwidget(
-                            parent=cnt2,
-                            text=txt,
-                            size=(0, 0),
-                            position=(self._width * 0.5, self._height - 28),
-                            h_align='center',
-                            v_align='center',
-                            color=(0.7, 1, 0.7, 0.4),
-                            scale=0.7,
-                            shadow=0,
-                            flatness=1.0,
-                            maxwidth=700,
-                            transition_delay=0.4,
-                        )
-                    elif self._tab == 'icons':
-                        txt = bui.Lstr(
-                            resource='store.howToUseIconsText',
-                            subs=[
-                                (
-                                    '${SETTINGS}',
-                                    bui.Lstr(resource='mainMenu.settingsText'),
-                                ),
-                                (
-                                    '${PLAYER_PROFILES}',
-                                    bui.Lstr(
-                                        resource=(
-                                            'playerProfilesWindow.titleText'
-                                        )
-                                    ),
-                                ),
-                            ],
-                        )
-                        bui.textwidget(
-                            parent=cnt2,
-                            text=txt,
-                            size=(0, 0),
-                            position=(self._width * 0.5, self._height - 28),
-                            h_align='center',
-                            v_align='center',
-                            color=(0.7, 1, 0.7, 0.4),
-                            scale=0.7,
-                            shadow=0,
-                            flatness=1.0,
-                            maxwidth=700,
-                            transition_delay=0.4,
-                        )
-                    elif self._tab == 'maps':
-                        assert self._width is not None
-                        assert self._height is not None
-                        txt = bui.Lstr(resource='store.howToUseMapsText')
-                        bui.textwidget(
-                            parent=cnt2,
-                            text=txt,
-                            size=(0, 0),
-                            position=(self._width * 0.5, self._height - 28),
-                            h_align='center',
-                            v_align='center',
-                            color=(0.7, 1, 0.7, 0.4),
-                            scale=0.7,
-                            shadow=0,
-                            flatness=1.0,
-                            maxwidth=700,
-                            transition_delay=0.4,
-                        )
-
-                    prev_row_buttons: list | None = None
-                    this_row_buttons = []
-
-                    delay = 0.3
-                    for section in self._sections:
-                        if section['title'] != '':
-                            bui.textwidget(
-                                parent=cnt2,
-                                position=(
-                                    self._width * 0.5,
-                                    v - title_spacing * 0.8,
-                                ),
-                                size=(0, 0),
-                                scale=1.0,
-                                transition_delay=delay,
-                                color=(0.7, 0.9, 0.7, 1),
-                                h_align='center',
-                                v_align='center',
-                                text=bui.Lstr(resource=section['title']),
-                                maxwidth=self._width * 0.7,
-                            )
-                            v -= title_spacing
-                        delay = max(0.100, delay - 0.100)
-                        v -= button_border
-                        b_width, b_height = section['button_size']
-                        b_count = len(section['items'])
-                        b_column_count = min(
-                            b_count,
-                            int(
-                                math.floor(
-                                    self._width / (b_width + button_spacing)
-                                )
-                            ),
-                        )
-
-                        col = 0
-                        item: dict[str, Any]
-                        assert self._store_window.button_infos is not None
-                        for i, item_name in enumerate(section['items']):
-                            item = self._store_window.button_infos[
-                                item_name
-                            ] = {}
-                            item['call'] = bui.WeakCall(
-                                self._store_window.buy, item_name
-                            )
-                            boffs_h2 = section.get('x_offs', 0.0)
-                            boffs_v2 = section.get('y_offs', 0.0)
-
-                            # Calc the diff between the space we use and
-                            # the space available and nudge us right by
-                            # half that to center things.
-                            boffs_h2 += 0.5 * (
-                                self._width
-                                - ((b_width + button_spacing) * b_column_count)
-                            )
-
-                            b_pos = (
-                                boffs_h
-                                + boffs_h2
-                                + (b_width + button_spacing) * col,
-                                v - b_height + boffs_v2,
-                            )
-                            instantiate_store_item_display(
-                                item_name,
-                                item,
-                                parent_widget=cnt2,
-                                b_pos=b_pos,
-                                boffs_h=boffs_h,
-                                b_width=b_width,
-                                b_height=b_height,
-                                boffs_h2=boffs_h2,
-                                boffs_v2=boffs_v2,
-                                delay=delay,
-                            )
-                            btn = item['button']
-                            delay = max(0.1, delay - 0.1)
-                            this_row_buttons.append(btn)
-
-                            # Wire this button to the equivalent in the
-                            # previous row.
-                            if prev_row_buttons is not None:
-                                if len(prev_row_buttons) > col:
-                                    bui.widget(
-                                        edit=btn,
-                                        up_widget=prev_row_buttons[col],
-                                    )
-                                    bui.widget(
-                                        edit=prev_row_buttons[col],
-                                        down_widget=btn,
-                                    )
-
-                                    # If we're the last button in our row,
-                                    # wire any in the previous row past
-                                    # our position to go to us if down is
-                                    # pressed.
-                                    if (
-                                        col + 1 == b_column_count
-                                        or i == b_count - 1
-                                    ):
-                                        for b_prev in prev_row_buttons[
-                                            col + 1 :
-                                        ]:
-                                            bui.widget(
-                                                edit=b_prev, down_widget=btn
-                                            )
-                                else:
-                                    bui.widget(
-                                        edit=btn, up_widget=prev_row_buttons[-1]
-                                    )
-                            else:
-                                bui.widget(edit=btn, up_widget=tab_button)
-
-                            col += 1
-                            if col == b_column_count or i == b_count - 1:
-                                prev_row_buttons = this_row_buttons
-                                this_row_buttons = []
-                                col = 0
-                                v -= b_height
-                                if i < b_count - 1:
-                                    v -= section['v_spacing']
-
-                        v -= button_border
-
-                    # Set a timer to update these buttons periodically
-                    # as long as we're alive (so if we buy one it will
-                    # grey out, etc).
-                    self._store_window.update_buttons_timer = bui.AppTimer(
-                        0.5,
-                        bui.WeakCall(self._store_window.update_buttons),
-                        repeat=True,
-                    )
-
-                    # Also update them immediately.
-                    self._store_window.update_buttons()
-
             if self._current_tab in (
                 # self.TabID.EXTRAS,
                 self.TabID.MINIGAMES,
@@ -1161,6 +826,15 @@ class StoreBrowserWindow(bui.MainWindow):
                     scrollwidget=self._scrollwidget,
                     tab_button=self._tab_row.tabs[self._current_tab].button,
                 )
+                # Most of our UI won't exist until this point so we need
+                # to explicitly restore state for selection restore to
+                # work.
+                #
+                # Note to self: perhaps we should *not* do this if
+                # significant time has passed since the window was made
+                # or if input commands have happened.
+                self.main_window_restore_shared_state()
+
             else:
                 cnt = bui.containerwidget(
                     parent=self._scrollwidget,
@@ -1197,74 +871,8 @@ class StoreBrowserWindow(bui.MainWindow):
         )
 
     @override
-    def on_main_window_close(self) -> None:
-        self._save_state()
-
-    def _save_state(self) -> None:
-        try:
-            sel = self._root_widget.get_selected_child()
-            selected_tab_ids = [
-                tab_id
-                for tab_id, tab in self._tab_row.tabs.items()
-                if sel == tab.button
-            ]
-            if sel == self._scrollwidget:
-                sel_name = 'Scroll'
-            elif sel == self._back_button:
-                sel_name = 'Back'
-            elif selected_tab_ids:
-                assert len(selected_tab_ids) == 1
-                sel_name = f'Tab:{selected_tab_ids[0].value}'
-            else:
-                raise ValueError(f'unrecognized selection \'{sel}\'')
-            assert bui.app.classic is not None
-            bui.app.ui_v1.window_states[type(self)] = {
-                'sel_name': sel_name,
-            }
-        except Exception:
-            logging.exception('Error saving state for %s.', self)
-
-    def _restore_state(self) -> None:
-
-        try:
-            sel: bui.Widget | None
-            assert bui.app.classic is not None
-            sel_name = bui.app.ui_v1.window_states.get(type(self), {}).get(
-                'sel_name'
-            )
-            assert isinstance(sel_name, (str, type(None)))
-
-            try:
-                current_tab = self.TabID(bui.app.config.get('Store Tab'))
-            except ValueError:
-                current_tab = self.TabID.CHARACTERS
-
-            if self._show_tab is not None:
-                current_tab = self._show_tab
-            if sel_name == 'Back':
-                sel = self._back_button
-            elif sel_name == 'Scroll':
-                sel = self._scrollwidget
-            elif isinstance(sel_name, str) and sel_name.startswith('Tab:'):
-                try:
-                    sel_tab_id = self.TabID(sel_name.split(':')[-1])
-                except ValueError:
-                    sel_tab_id = self.TabID.CHARACTERS
-                sel = self._tab_row.tabs[sel_tab_id].button
-            else:
-                sel = self._tab_row.tabs[current_tab].button
-
-            # If we were requested to show a tab, select it too.
-            if (
-                self._show_tab is not None
-                and self._show_tab in self._tab_row.tabs
-            ):
-                sel = self._tab_row.tabs[self._show_tab].button
-            self._set_tab(current_tab)
-            if sel is not None:
-                bui.containerwidget(edit=self._root_widget, selected_child=sel)
-        except Exception:
-            logging.exception('Error restoring state for %s.', self)
+    def main_window_should_preserve_selection(self) -> bool:
+        return True
 
 
 def _check_merch_availability_in_bg_thread() -> None:
@@ -1305,14 +913,337 @@ def _check_merch_availability_in_bg_thread() -> None:
         time.sleep(1.1934)  # A bit randomized to avoid aliasing.
 
 
+class _Store:
+    def __init__(
+        self,
+        store_window: StoreBrowserWindow,
+        sdata: dict[str, Any],
+        width: float,
+    ):
+        assert bui.app.classic is not None
+        cstore = bui.app.classic.store
+
+        self._store_window = store_window
+        self._width = width
+        store_data = cstore.get_store_layout()
+        self._tab = sdata['tab']
+        self._sections = copy.deepcopy(store_data[sdata['tab']])
+        self._height: float | None = None
+
+        assert bui.app.classic is not None
+        uiscale = bui.app.ui_v1.uiscale
+
+        # Pre-calc a few things and add them to store-data.
+        for section in self._sections:
+            if self._tab == 'characters':
+                dummy_name = 'characters.foo'
+            elif self._tab == 'extras':
+                dummy_name = 'pro'
+            elif self._tab == 'maps':
+                dummy_name = 'maps.foo'
+            elif self._tab == 'icons':
+                dummy_name = 'icons.foo'
+            else:
+                dummy_name = ''
+            section['button_size'] = cstore.get_store_item_display_size(
+                dummy_name
+            )
+            section['v_spacing'] = (
+                -25
+                if (self._tab == 'extras' and uiscale is bui.UIScale.SMALL)
+                else -17 if self._tab == 'characters' else 0
+            )
+            if 'title' not in section:
+                section['title'] = ''
+            section['x_offs'] = 0.0
+            # section['x_offs'] = (
+            #     130
+            #     if self._tab == 'extras'
+            #     else 270 if self._tab == 'maps' else 0
+            # )
+            section['y_offs'] = (
+                20
+                if (
+                    self._tab == 'extras'
+                    and uiscale is bui.UIScale.SMALL
+                    and bui.app.config.get('Merch Link')
+                )
+                else (
+                    55
+                    if (self._tab == 'extras' and uiscale is bui.UIScale.SMALL)
+                    else -20 if self._tab == 'icons' else 0
+                )
+            )
+
+    def instantiate(
+        self, scrollwidget: bui.Widget, tab_button: bui.Widget
+    ) -> None:
+        """Create the store."""
+        # pylint: disable=too-many-statements
+        # pylint: disable=too-many-locals
+        # pylint: disable=too-many-branches
+        # pylint: disable=too-many-nested-blocks
+        from bauiv1lib.store.item import (
+            instantiate_store_item_display,
+        )
+
+        title_spacing = 40
+        button_border = 20
+        button_spacing = 4
+        boffs_h = 0.0
+        self._height = 80.0
+
+        # Calc total height.
+        for i, section in enumerate(self._sections):
+            if section['title'] != '':
+                assert self._height is not None
+                self._height += title_spacing
+            b_width, b_height = section['button_size']
+            b_count = len(section['items'])
+            b_column_count = min(
+                b_count,
+                int(math.floor(self._width / (b_width + button_spacing))),
+            )
+            b_row_count = int(math.ceil(b_count / b_column_count))
+            b_height_total = (
+                2 * button_border
+                + b_row_count * b_height
+                + (b_row_count - 1) * section['v_spacing']
+            )
+            self._height += b_height_total
+
+        assert self._height is not None
+        cnt2 = bui.containerwidget(
+            parent=scrollwidget,
+            scale=1.0,
+            size=(self._width, self._height),
+            background=False,
+            claims_left_right=True,
+            selection_loops_to_parent=True,
+        )
+        v = self._height - 20
+
+        if self._tab == 'characters':
+            txt = bui.Lstr(
+                resource='store.howToSwitchCharactersText',
+                subs=[
+                    (
+                        '${SETTINGS}',
+                        bui.Lstr(resource='inventoryText'),
+                    ),
+                    (
+                        '${PLAYER_PROFILES}',
+                        bui.Lstr(resource='playerProfilesWindow.titleText'),
+                    ),
+                ],
+            )
+            bui.textwidget(
+                parent=cnt2,
+                text=txt,
+                size=(0, 0),
+                position=(self._width * 0.5, self._height - 28),
+                h_align='center',
+                v_align='center',
+                color=(0.7, 1, 0.7, 0.4),
+                scale=0.7,
+                shadow=0,
+                flatness=1.0,
+                maxwidth=700,
+                transition_delay=0.4,
+            )
+        elif self._tab == 'icons':
+            txt = bui.Lstr(
+                resource='store.howToUseIconsText',
+                subs=[
+                    (
+                        '${SETTINGS}',
+                        bui.Lstr(resource='mainMenu.settingsText'),
+                    ),
+                    (
+                        '${PLAYER_PROFILES}',
+                        bui.Lstr(resource='playerProfilesWindow.titleText'),
+                    ),
+                ],
+            )
+            bui.textwidget(
+                parent=cnt2,
+                text=txt,
+                size=(0, 0),
+                position=(self._width * 0.5, self._height - 28),
+                h_align='center',
+                v_align='center',
+                color=(0.7, 1, 0.7, 0.4),
+                scale=0.7,
+                shadow=0,
+                flatness=1.0,
+                maxwidth=700,
+                transition_delay=0.4,
+            )
+        elif self._tab == 'maps':
+            assert self._width is not None
+            assert self._height is not None
+            txt = bui.Lstr(resource='store.howToUseMapsText')
+            bui.textwidget(
+                parent=cnt2,
+                text=txt,
+                size=(0, 0),
+                position=(self._width * 0.5, self._height - 28),
+                h_align='center',
+                v_align='center',
+                color=(0.7, 1, 0.7, 0.4),
+                scale=0.7,
+                shadow=0,
+                flatness=1.0,
+                maxwidth=700,
+                transition_delay=0.4,
+            )
+
+        prev_row_buttons: list | None = None
+        this_row_buttons = []
+
+        delay = 0.3
+        for section in self._sections:
+            if section['title'] != '':
+                bui.textwidget(
+                    parent=cnt2,
+                    position=(
+                        self._width * 0.5,
+                        v - title_spacing * 0.8,
+                    ),
+                    size=(0, 0),
+                    scale=1.0,
+                    transition_delay=delay,
+                    color=(0.7, 0.9, 0.7, 1),
+                    h_align='center',
+                    v_align='center',
+                    text=bui.Lstr(resource=section['title']),
+                    maxwidth=self._width * 0.7,
+                )
+                v -= title_spacing
+            delay = max(0.100, delay - 0.100)
+            v -= button_border
+            b_width, b_height = section['button_size']
+            b_count = len(section['items'])
+            b_column_count = min(
+                b_count,
+                int(math.floor(self._width / (b_width + button_spacing))),
+            )
+
+            col = 0
+            item: dict[str, Any]
+            assert self._store_window.button_infos is not None
+            for i, item_name in enumerate(section['items']):
+                item = self._store_window.button_infos[item_name] = {}
+                item['call'] = bui.WeakCall(self._store_window.buy, item_name)
+                boffs_h2 = section.get('x_offs', 0.0)
+                boffs_v2 = section.get('y_offs', 0.0)
+
+                # Calc the diff between the space we use and
+                # the space available and nudge us right by
+                # half that to center things.
+                boffs_h2 += 0.5 * (
+                    self._width - ((b_width + button_spacing) * b_column_count)
+                )
+
+                b_pos = (
+                    boffs_h + boffs_h2 + (b_width + button_spacing) * col,
+                    v - b_height + boffs_v2,
+                )
+                instantiate_store_item_display(
+                    item_name,
+                    item,
+                    idprefix=self._store_window.main_window_id_prefix,
+                    parent_widget=cnt2,
+                    b_pos=b_pos,
+                    boffs_h=boffs_h,
+                    b_width=b_width,
+                    b_height=b_height,
+                    boffs_h2=boffs_h2,
+                    boffs_v2=boffs_v2,
+                    delay=delay,
+                )
+                btn = item['button']
+                delay = max(0.1, delay - 0.1)
+                this_row_buttons.append(btn)
+
+                # Wire this button to the equivalent in the
+                # previous row.
+                if prev_row_buttons is not None:
+                    if len(prev_row_buttons) > col:
+                        bui.widget(
+                            edit=btn,
+                            up_widget=prev_row_buttons[col],
+                        )
+                        bui.widget(
+                            edit=prev_row_buttons[col],
+                            down_widget=btn,
+                        )
+
+                        # If we're the last button in our row,
+                        # wire any in the previous row past
+                        # our position to go to us if down is
+                        # pressed.
+                        if col + 1 == b_column_count or i == b_count - 1:
+                            for b_prev in prev_row_buttons[col + 1 :]:
+                                bui.widget(edit=b_prev, down_widget=btn)
+                    else:
+                        bui.widget(edit=btn, up_widget=prev_row_buttons[-1])
+                else:
+                    bui.widget(edit=btn, up_widget=tab_button)
+
+                col += 1
+                if col == b_column_count or i == b_count - 1:
+                    prev_row_buttons = this_row_buttons
+                    this_row_buttons = []
+                    col = 0
+                    v -= b_height
+                    if i < b_count - 1:
+                        v -= section['v_spacing']
+
+            v -= button_border
+
+        # Set a timer to update these buttons periodically
+        # as long as we're alive (so if we buy one it will
+        # grey out, etc).
+        self._store_window.update_buttons_timer = bui.AppTimer(
+            0.5,
+            bui.WeakCall(self._store_window.update_buttons),
+            repeat=True,
+        )
+
+        # Also update them immediately.
+        self._store_window.update_buttons()
+
+
+class _Request:
+    def __init__(
+        self, window: StoreBrowserWindow, tab_id: StoreBrowserWindow.TabID
+    ):
+        self._window = weakref.ref(window)
+        data = {'tab': tab_id.value}
+        bui.apptimer(0.1, bui.WeakCall(self._on_response, data))
+
+    def _on_response(self, data: dict[str, Any] | None) -> None:
+        # FIXME: clean this up.
+        # pylint: disable=protected-access
+        window = self._window()
+        if window is not None and (window.request is self):
+            window.request = None
+            window._on_response(data)
+
+
 # Slight hack; start checking merch availability in the bg (but only if
 # it looks like we've been imported for use in a running app; don't want
 # to do this during docs generation/etc.)
 
+# NOTE: Disabling this for now since we're not showing the merch section
+# (and want to purge all use of daemon threads).
+
 # TODO: Should wire this up explicitly to app bootstrapping; not good to
 # be kicking off work at module import time.
 if (
-    os.environ.get('BA_RUNNING_WITH_DUMMY_MODULES') != '1'
+    bool(False)
+    and os.environ.get('BA_RUNNING_WITH_DUMMY_MODULES') != '1'
     and bui.app.state is not bui.AppState.NOT_STARTED
 ):
-    Thread(target=_check_merch_availability_in_bg_thread, daemon=True).start()
+    Thread(target=_check_merch_availability_in_bg_thread).start()

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import time
 import logging
 from enum import Enum
 from functools import partial
@@ -12,8 +13,10 @@ from typing import TYPE_CHECKING, override
 from threading import RLock
 
 from efro.threadpool import ThreadPoolExecutorEx
+from efro.util import strip_exception_tracebacks
 
 import _babase
+from babase._discord import DiscordSubsystem
 from babase._language import LanguageSubsystem
 from babase._locale import LocaleSubsystem
 from babase._plugin import PluginSubsystem
@@ -27,6 +30,7 @@ from babase._stringedit import StringEditSubsystem
 from babase._devconsole import DevConsoleSubsystem
 from babase._appconfig import AppConfig
 from babase._logging import lifecyclelog, applog
+from babase._gc import GarbageCollectionSubsystem
 
 if TYPE_CHECKING:
     import asyncio
@@ -63,6 +67,9 @@ class App:
 
     #: Subsystem for keeping tabs on app health.
     health: AppHealthSubsystem
+
+    #: Subsystem for network functionality.
+    net: NetworkSubsystem
 
     #: How long we allow shutdown tasks to run before killing them.
     #: Currently the entire app hard-exits if shutdown takes 15 seconds,
@@ -105,6 +112,11 @@ class App:
             initializer=self._thread_pool_thread_init,
         )
 
+        #: Garbage collection related functionality.
+        self.gc: GarbageCollectionSubsystem = self.register_subsystem(
+            GarbageCollectionSubsystem()
+        )
+
         #: Locale related functionality.
         self.locale: LocaleSubsystem = self.register_subsystem(
             LocaleSubsystem()
@@ -120,16 +132,18 @@ class App:
             PluginSubsystem()
         )
 
+        #: Subsystem for discord functionality
+        self.discord: DiscordSubsystem = self.register_subsystem(
+            DiscordSubsystem()
+        )
+
         #: Subsystem for wrangling metadata.
         self.meta: MetadataSubsystem = MetadataSubsystem()
-
-        #: Subsystem for network functionality.
-        self.net: NetworkSubsystem = NetworkSubsystem()
 
         #: Subsystem for wrangling workspaces.
         self.workspaces: WorkspaceSubsystem = WorkspaceSubsystem()
 
-        # (not actually in use yet)
+        #: :meta private:
         self.components: AppComponentSubsystem = AppComponentSubsystem()
 
         #: Subsystem for wrangling text input from various sources.
@@ -188,10 +202,16 @@ class App:
         return _babase.app_is_active()
 
     @property
-    def mode(self) -> AppMode | None:
-        """The app's current mode."""
+    def mode(self) -> AppMode:
+        """The app's current mode.
+
+        Raises :class:`ValueError` if no mode is set.
+        """
         assert _babase.in_logic_thread()
-        return self._mode
+        mode = self._mode
+        if mode is None:
+            raise ValueError('No app-mode set.')
+        return mode
 
     @property
     def asyncio_loop(self) -> asyncio.AbstractEventLoop:
@@ -242,19 +262,6 @@ class App:
         self._asyncio_tasks.add(task)
         task.add_done_callback(self._on_task_done)
 
-    def _on_task_done(self, task: asyncio.Task) -> None:
-        # Report any errors that occurred.
-        try:
-            exc = task.exception()
-            if exc is not None:
-                logging.error(
-                    "Error in async task '%s'.", task.get_name(), exc_info=exc
-                )
-        except Exception:
-            logging.exception('Error reporting async task error.')
-
-        self._asyncio_tasks.remove(task)
-
     @property
     def mode_selector(self) -> babase.AppModeSelector:
         """Controls which app-modes are used for handling given intents.
@@ -273,6 +280,24 @@ class App:
     @mode_selector.setter
     def mode_selector(self, selector: babase.AppModeSelector) -> None:
         self._mode_selector = selector
+
+    def _on_task_done(self, task: asyncio.Task) -> None:
+        # Report any errors that occurred.
+        try:
+            exc = task.exception()
+            if exc is not None:
+                logging.error(
+                    "Error in async task '%s'.", task.get_name(), exc_info=exc
+                )
+                # We're done with the exception, so let's rip out its
+                # tracebacks to try and avoid the need for cyclic
+                # garbage collection.
+                strip_exception_tracebacks(exc)
+
+        except Exception:
+            logging.exception('Error reporting async task error.')
+
+        self._asyncio_tasks.remove(task)
 
     def _get_subsystem_property(
         self, ssname: str, create_call: Callable[[], AppSubsystem | None]
@@ -409,9 +434,16 @@ class App:
     def add_shutdown_task(self, coro: Coroutine[None, None, None]) -> None:
         """Add a task to be run on app shutdown.
 
-        Note that shutdown tasks will be canceled after
-        :py:const:`SHUTDOWN_TASK_TIMEOUT_SECONDS` if they are still
-        running.
+        All shutdown tasks will be run concurrently alongside a fade-out,
+        so it is ok for them to take a moment or two to do their thing.
+
+        If a shutdown task is still running after
+        :py:const:`SHUTDOWN_TASK_TIMEOUT_SECONDS`, however, it will be
+        canceled.
+
+        Code needing more exact control over its place in app shutdown
+        can look into :func:`babase.atexit()`, (though this comes with
+        some limitations as well).
         """
         if (
             self.state is AppState.SHUTTING_DOWN
@@ -422,6 +454,36 @@ class App:
                 f'Cannot add shutdown tasks with current state {stname}.'
             )
         self._shutdown_tasks.append(coro)
+
+    def _pre_interpreter_shutdown(self) -> None:
+        """Called just before interpreter is finalized."""
+        import gc
+        from babase._env import interpreter_shutdown_sanity_checks
+
+        # Spin down connection pools or whatever else used for
+        # networking.
+        self.net.pre_interpreter_shutdown()
+
+        # Run a last round of cyclic garbage collection - mostly so
+        # we keep ourselves aware of reference cycles that need cleaning
+        # up.
+        self.gc.collect(force=True)
+
+        # Turn off any garbage-collector debugging or we'll get a huge
+        # dump of stuff as Python is tearing itself down, which we don't
+        # care about.
+        if gc.get_debug() != 0:
+            gc.set_debug(0)
+            # Clear garbage or else we get warnings about uncollectable
+            # objects if we've been running with gc.DEBUG_SAVEALL.
+            gc.garbage.clear()
+
+        # Finish up anything the threadpool is working on and kill its
+        # threads.
+        self.threadpool.shutdown()
+
+        # General sanity checks for lingering threads/etc.
+        interpreter_shutdown_sanity_checks()
 
     def run(self) -> None:
         """Run the app to completion.
@@ -746,8 +808,18 @@ class App:
 
         assert _babase.in_logic_thread()
 
+        # Since we're officially spinning up an app, add some sanity
+        # checks to help make sure we do a clean exit at the end of it
+        # (at least on monolithic builds). We add this before we make
+        # any other on-initing calls that could result in thread
+        # spinups/etc. so that any of their atexits will have fired
+        # before this one.
+        if self.env.monolithic_build:
+            _babase.atexit(self._pre_interpreter_shutdown)
+
         _env.on_app_state_initing()
 
+        self.net = NetworkSubsystem()
         self._asyncio_loop = _asyncio.setup_asyncio()
         self.health = self.register_subsystem(AppHealthSubsystem())
 
@@ -870,15 +942,15 @@ class App:
         # be added at this point.
         for subsystem in self._subsystems.copy():
             try:
-                subsystem.do_apply_app_config()
+                subsystem.apply_app_config()
             except Exception:
                 logging.exception(
-                    'Error in do_apply_app_config() for subsystem %s.',
+                    'Error in apply_app_config() for subsystem %s.',
                     subsystem,
                 )
 
         # Let the native layer do its thing.
-        _babase.do_apply_app_config()
+        _babase.apply_app_config()
 
     def _update_state(self) -> None:
         # pylint: disable=too-many-branches
@@ -906,6 +978,7 @@ class App:
             # Entering suspended state:
             if self.state is not AppState.SUSPENDED:
                 self.state = AppState.SUSPENDED
+                lifecyclelog.info('app-state is now %s', self.state.name)
                 self._on_suspend()
         else:
             # Leaving suspended state:
@@ -1084,11 +1157,32 @@ class App:
 
         # Kick off a short fade and give it time to complete.
         lifecyclelog.info('fade-and-shutdown-graphics begin')
-        _babase.fade_screen(False, time=0.15)
-        await asyncio.sleep(0.15)
+        fade_done = False
 
-        # Now tell the graphics system to go down and wait until
-        # it has done so.
+        starttime = time.monotonic()
+
+        def _set_fade_done() -> None:
+            nonlocal fade_done
+            fade_done = True
+
+        if _babase.app.env.gui:
+            _babase.fade_screen(False, time=0.25, endcall=_set_fade_done)
+        else:
+            fade_done = True
+
+        # Note: originally was just sleeping once for the fade duration,
+        # but due to timing mismatches that could resulted in the game
+        # freezing visually mid-fade to finish quitting. So now waiting
+        # until the fade confirms that it is done.
+        while not fade_done:
+            await asyncio.sleep(0.03)
+            # Fallback trigger in case fade never calls back.
+            if time.monotonic() - starttime > 2.0:
+                lifecyclelog.warning('fade_screen took too long; cutting off.')
+                fade_done = True
+
+        # Now tell the graphics system to go down and wait until it has
+        # done so.
         _babase.graphics_shutdown_begin()
         while not _babase.graphics_shutdown_is_complete():
             await asyncio.sleep(0.01)

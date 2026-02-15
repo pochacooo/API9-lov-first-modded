@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import random
 import logging
+import time
+import uuid
 from typing import TYPE_CHECKING, override
 
 import babase
@@ -256,7 +258,6 @@ class GameActivity[PlayerT: bascenev1.Player, TeamT: bascenev1.Team](
         """Return a name for this particular game instance."""
         return self.get_display_string(self.settings_raw)
 
-    # noinspection PyUnresolvedReferences
     def get_instance_scoreboard_display_string(self) -> babase.Lstr:
         """Return a name for this particular game instance.
 
@@ -338,8 +339,27 @@ class GameActivity[PlayerT: bascenev1.Player, TeamT: bascenev1.Team](
         # Make our map.
         self._map = self._map_type()
 
-        # Give our map a chance to override the music.
-        # (for happy-thoughts and other such themed maps)
+        # Add default activities for our map.
+        mapname = getattr(self._map_type, 'name', None)
+        map_preview = getattr(self._map_type, 'get_preview_texture_name', None)
+
+        if babase.app.discord.is_ready and mapname and map_preview:
+            preview = map_preview().lower().removesuffix('preview')
+            babase.app.discord.set_presence(
+                state=self.getname(),
+                details=f"Playing on {mapname}",
+                large_image_key=preview,
+                large_image_text=mapname,
+                small_image_key=(
+                    babase.app.classic.platform if babase.app.classic else None
+                ),
+                small_image_text=(
+                    babase.app.classic.platform if babase.app.classic else None
+                ),
+                start_timestamp=int(time.time()),
+            )
+
+        # Give our map a chance to override the music
         map_music = self._map_type.get_music_type()
         music = map_music if map_music is not None else self.default_music
 
@@ -353,8 +373,14 @@ class GameActivity[PlayerT: bascenev1.Player, TeamT: bascenev1.Team](
         if babase.app.classic is not None:
             babase.app.classic.game_begin_analytics()
 
-        # We don't do this in on_transition_in because it may depend on
-        # players/teams which aren't available until now.
+        # Update Discord party info
+        if babase.app.discord.is_ready:
+            party_size = len(self.players)
+            max_size = max(8, party_size)
+            babase.app.discord.set_presence(
+                party_id=str(uuid.uuid4()), party_size=(party_size, max_size)
+            )
+
         _bascenev1.timer(0.001, self._show_scoreboard_info)
         _bascenev1.timer(1.0, self._show_info)
         _bascenev1.timer(2.5, self._show_tip)
@@ -1024,13 +1050,13 @@ class GameActivity[PlayerT: bascenev1.Player, TeamT: bascenev1.Team](
                 'text',
                 attrs={
                     'v_attach': 'bottom',
-                    'h_attach': 'left',
+                    'h_attach': 'right',
                     'h_align': 'center',
                     'v_align': 'center',
                     'vr_depth': 300,
                     'maxwidth': 100,
                     'color': (1.0, 1.0, 1.0, 0.5),
-                    'position': (60, 50),
+                    'position': (-60, 50),
                     'flatness': 1.0,
                     'scale': 0.5,
                     'text': babase.Lstr(resource='tournamentText'),
@@ -1042,13 +1068,13 @@ class GameActivity[PlayerT: bascenev1.Player, TeamT: bascenev1.Team](
                 'text',
                 attrs={
                     'v_attach': 'bottom',
-                    'h_attach': 'left',
+                    'h_attach': 'right',
                     'h_align': 'center',
                     'v_align': 'center',
                     'vr_depth': 300,
                     'maxwidth': 100,
                     'color': (1.0, 1.0, 1.0, 0.5),
-                    'position': (60, 30),
+                    'position': (-60, 30),
                     'flatness': 1.0,
                     'scale': 0.9,
                 },
@@ -1082,8 +1108,8 @@ class GameActivity[PlayerT: bascenev1.Player, TeamT: bascenev1.Team](
                 assert self._tournament_time_limit_text.node
                 self._tournament_time_limit_title_text.node.scale = 1.0
                 self._tournament_time_limit_text.node.scale = 1.3
-                self._tournament_time_limit_title_text.node.position = (80, 85)
-                self._tournament_time_limit_text.node.position = (80, 60)
+                self._tournament_time_limit_title_text.node.position = (-80, 85)
+                self._tournament_time_limit_text.node.position = (-80, 60)
                 cnode = _bascenev1.newnode(
                     'combine',
                     owner=self._tournament_time_limit_text.node,

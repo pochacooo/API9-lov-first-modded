@@ -260,7 +260,6 @@ class CoopSession(Session):
             with activity.context:
                 activity.end(results={'outcome': 'restart'}, force=True)
 
-    # noinspection PyUnresolvedReferences
     @override
     def on_activity_end(
         self, activity: bascenev1.Activity, results: Any
@@ -318,13 +317,17 @@ class CoopSession(Session):
             else:
                 next_game = self._current_game_instance
 
+            variant = babase.app.env.variant
+            vart = type(variant)
+            arcade_or_demo = variant is vart.ARCADE or variant is vart.DEMO
+
             # Special case: if we're coming from a joining-activity
             # and will be going into onslaught-training, show the
             # tutorial first.
             if (
                 isinstance(activity, JoinActivity)
                 and self.campaign_level_name == 'Onslaught Training'
-                and not (env.demo or env.arcade)
+                and not arcade_or_demo
             ):
                 if self._tutorial_activity is None:
                     raise RuntimeError('Tutorial not preloaded properly.')
@@ -346,7 +349,7 @@ class CoopSession(Session):
                 # Now flip the current activity..
                 self.setactivity(next_game)
 
-                if not (env.demo or env.arcade):
+                if not arcade_or_demo:
                     if (
                         self.tournament_id is not None
                         and classic.coop_session_args['submit_score']

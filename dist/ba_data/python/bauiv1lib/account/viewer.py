@@ -71,12 +71,11 @@ class AccountViewerWindow(PopupWindow):
             position=(50, self._height - 30),
             size=(50, 50),
             scale=0.5,
-            label='',
+            label=bui.charstr(bui.SpecialChar.CLOSE),
+            textcolor=(1, 1, 1),
             color=bg_color,
             on_activate_call=self._on_cancel_press,
             autoselect=True,
-            icon=bui.gettexture('crossOut'),
-            iconscale=1.2,
         )
 
         self._title_text = bui.textwidget(
@@ -216,9 +215,8 @@ class AccountViewerWindow(PopupWindow):
         plus = bui.app.plus
         assert plus is not None
         bui.open_url(
-            plus.get_master_server_address()
-            + '/highscores?profile='
-            + self._account_id
+            f'{plus.get_legacy_master_server_address()}'
+            f'/highscores?profile={self._account_id}'
         )
 
     def _on_query_response(self, data: dict[str, Any] | None) -> None:

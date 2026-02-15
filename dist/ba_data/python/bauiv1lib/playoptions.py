@@ -40,6 +40,8 @@ class PlayOptionsWindow(PopupWindow):
         from bauiv1lib.playlist import PlaylistTypeVars
         from bauiv1lib.config import ConfigNumberEdit
 
+        ui = bui.app.ui_v1
+
         self._r = 'gameListWindow'
         self._delegate = delegate
         self._pvars = PlaylistTypeVars(sessiontype)
@@ -145,7 +147,7 @@ class PlayOptionsWindow(PopupWindow):
         if show_shuffle_check_box:
             self._height += 40
 
-        uiscale = bui.app.ui_v1.uiscale
+        uiscale = ui.uiscale
         scale = (
             1.69
             if uiscale is bui.UIScale.SMALL
@@ -178,13 +180,13 @@ class PlayOptionsWindow(PopupWindow):
             position=(25, self._height - 53),
             size=(50, 50),
             scale=0.7,
-            label='',
+            label=bui.charstr(bui.SpecialChar.CLOSE),
+            textcolor=(1, 1, 1),
             color=(0.42, 0.73, 0.2),
             on_activate_call=self._on_cancel_press,
             autoselect=True,
-            icon=bui.gettexture('crossOut'),
-            iconscale=1.2,
         )
+        bui.widget(edit=self._cancel_button, allow_preserve_selection=False)
 
         h_offs_img = self._width * 0.5 - c_width_total * 0.5
         v_offs_img = self._height - 118 - scl * 125.0 + 50
@@ -248,6 +250,8 @@ class PlayOptionsWindow(PopupWindow):
                         mesh_transparent=mesh_transparent if owned else None,
                         mask_texture=mask_tex if owned else None,
                     )
+                    bui.widget(edit=btn, allow_preserve_selection=False)
+
                     if row == 0 and col == 0:
                         bui.widget(edit=self._cancel_button, down_widget=btn)
                     if row == rows - 1:
@@ -317,6 +321,11 @@ class PlayOptionsWindow(PopupWindow):
                 textcolor=(0.8, 0.8, 0.8),
                 label=bui.Lstr(resource='teamNamesColorText'),
             )
+            bui.widget(
+                edit=self._custom_colors_names_button,
+                allow_preserve_selection=False,
+            )
+
             assert bui.app.classic is not None
             if REQUIRE_PRO and not bui.app.classic.accounts.have_pro():
                 bui.imagewidget(
@@ -415,6 +424,7 @@ class PlayOptionsWindow(PopupWindow):
                 )
             ),
         )
+        bui.widget(edit=self._ok_button, allow_preserve_selection=False)
 
         bui.widget(
             edit=self._ok_button, up_widget=self._show_tutorial_check_box
@@ -506,8 +516,6 @@ class PlayOptionsWindow(PopupWindow):
         # Head back to the gather window in playlist-select mode or
         # start the game in regular mode.
         if self._playlist_select_context is not None:
-            # from bauiv1lib.gather import GatherWindow
-
             if self._sessiontype is bs.FreeForAllSession:
                 typename = 'ffa'
             elif self._sessiontype is bs.DualTeamSession:

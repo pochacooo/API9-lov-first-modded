@@ -173,13 +173,13 @@ class _Outputter:
             # Sanity checks; make sure looking up this id gets us this
             # type.
             assert isinstance(type_id.value, str)
-            if obj.get_type(type_id) is not type(obj):
+            if obj.get_type_cached(type_id) is not type(obj):
                 raise RuntimeError(
                     f'dataclassio: object of type {type(obj)}'
                     f' gives type-id {type_id} but that id gives type'
-                    f' {obj.get_type(type_id)}. Something is out of sync.'
+                    f' {obj.get_type_cached(type_id)}.'
+                    f' Something is out of sync.'
                 )
-            assert obj.get_type(type_id) is type(obj)
             if self._create:
                 assert out is not None
                 storagename = obj.get_type_id_storage_name()
@@ -465,9 +465,20 @@ class _Outputter:
             check_utc(value)
             if ioattrs is not None:
                 ioattrs.validate_datetime(value, fieldpath)
+                float_times = ioattrs.float_times
+            else:
+                float_times = False
             if self._codec is Codec.FIRESTORE:
                 return value
             assert self._codec is Codec.JSON
+
+            # By default we spit out an array of ints so that we can
+            # reconstruct the datetime perfectly. However we now have
+            # the option to spit out a float timestamp instead. This is
+            # simpler but may not read back in 100% the same due to
+            # floating point precision issues.
+            if float_times:
+                return value.timestamp() if self._create else None
             return (
                 [
                     value.year,
@@ -487,6 +498,13 @@ class _Outputter:
                     f'Expected a {origin} for {fieldpath};'
                     f' found a {type(value)}.'
                 )
+            if ioattrs is not None:
+                float_times = ioattrs.float_times
+            else:
+                float_times = False
+
+            if float_times:
+                return value.total_seconds() if self._create else None
             return (
                 [value.days, value.seconds, value.microseconds]
                 if self._create
@@ -543,7 +561,7 @@ class _Outputter:
                 value, self._codec
             ):
                 raise TypeError(
-                    f'Invalid value for Dict[Any, Any]'
+                    f'Invalid value for dict[Any, Any]'
                     f' at \'{fieldpath}\' on {cls.__name__};'
                     f' all keys and values must be directly compatible'
                     f' with the specified codec ({self._codec.name})'

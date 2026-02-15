@@ -38,6 +38,7 @@ class PartyWindow(bui.Window):
             if uiscale is bui.UIScale.SMALL
             else 480 if uiscale is bui.UIScale.MEDIUM else 600
         )
+        self._idprefix = bui.app.ui_v1.new_id_prefix('party')
         self._display_old_msgs = True
         super().__init__(
             root_widget=bui.containerwidget(
@@ -59,6 +60,7 @@ class PartyWindow(bui.Window):
                         (260, 0) if uiscale is bui.UIScale.MEDIUM else (370, 60)
                     )
                 ),
+                darken_behind=True,
             ),
             # We exist in the overlay stack so main-windows being
             # recreated doesn't affect us.
@@ -67,15 +69,14 @@ class PartyWindow(bui.Window):
 
         self._cancel_button = bui.buttonwidget(
             parent=self._root_widget,
+            id=f'{self._idprefix}|cancel',
             scale=0.7,
             position=(30, self._height - 47),
             size=(50, 50),
-            label='',
             on_activate_call=self.close,
             autoselect=True,
             color=(0.45, 0.63, 0.15),
-            icon=bui.gettexture('crossOut'),
-            iconscale=1.2,
+            label=bui.charstr(bui.SpecialChar.CLOSE),
         )
         bui.containerwidget(
             edit=self._root_widget, cancel_button=self._cancel_button
@@ -83,6 +84,7 @@ class PartyWindow(bui.Window):
 
         self._menu_button = bui.buttonwidget(
             parent=self._root_widget,
+            id=f'{self._idprefix}|menu',
             scale=0.7,
             position=(self._width - 60, self._height - 47),
             size=(50, 50),
@@ -139,13 +141,18 @@ class PartyWindow(bui.Window):
         self._scroll_width = self._width - 50
         self._scrollwidget = bui.scrollwidget(
             parent=self._root_widget,
+            id=f'{self._idprefix}|scroll',
             size=(self._scroll_width, self._height - 200),
             position=(30, 80),
             color=(0.4, 0.6, 0.3),
             border_opacity=0.6,
         )
         self._columnwidget = bui.columnwidget(
-            parent=self._scrollwidget, border=2, left_border=-200, margin=0
+            parent=self._scrollwidget,
+            id=f'{self._idprefix}|column',
+            border=2,
+            left_border=-200,
+            margin=0,
         )
         bui.widget(edit=self._menu_button, down_widget=self._columnwidget)
 
@@ -161,6 +168,7 @@ class PartyWindow(bui.Window):
 
         self._text_field = txt = bui.textwidget(
             parent=self._root_widget,
+            id=f'{self._idprefix}|messagetext',
             editable=True,
             size=(530, 40),
             position=(44, 39),
@@ -191,6 +199,7 @@ class PartyWindow(bui.Window):
 
         btn = bui.buttonwidget(
             parent=self._root_widget,
+            id=f'{self._idprefix}|send',
             size=(50, 35),
             label=bui.Lstr(resource=f'{self._r}.sendText'),
             button_type='square',
@@ -200,6 +209,7 @@ class PartyWindow(bui.Window):
         )
 
         bui.textwidget(edit=txt, on_return_press_call=btn.activate)
+        bui.widget(edit=txt, down_widget=btn)
         self._name_widgets: list[bui.Widget] = []
         self._roster: list[dict[str, Any]] | None = None
         self._update_timer = bui.AppTimer(
@@ -235,7 +245,14 @@ class PartyWindow(bui.Window):
 
     def _copy_msg(self, msg: str) -> None:
         if bui.clipboard_is_supported():
-            bui.clipboard_set_text(msg)
+            # Extract content after the first colon
+            if ':' in msg:
+                content = msg.split(':', 1)[1].strip()
+            else:
+                # Just a safe check
+                content = msg
+
+            bui.clipboard_set_text(content)
             bui.screenmessage(
                 bui.Lstr(resource='copyConfirmText'), color=(0, 1, 0)
             )

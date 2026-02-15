@@ -60,6 +60,8 @@ class TournamentButton:
             show_buffer_top=50,
             show_buffer_left=400,
             show_buffer_right=200,
+            # We handle reselection manually for these so no ids.
+            allow_preserve_selection=False,
         )
         if select:
             bui.containerwidget(
@@ -331,6 +333,11 @@ class TournamentButton:
             color=value_color,
             flatness=1.0,
         )
+        # We handle reselection manually for these so no ids.
+        bui.widget(
+            edit=self.current_leader_name_text, allow_preserve_selection=False
+        )
+
         self.current_leader_score_text = bui.textwidget(
             parent=parent,
             draw_controller=btn,
@@ -357,6 +364,8 @@ class TournamentButton:
             text_scale=0.6,
             on_activate_call=bui.WeakCall(self._show_scores),
         )
+        # We handle reselection manually for these so no ids.
+        bui.widget(edit=self.more_scores_button, allow_preserve_selection=False)
         bui.widget(
             edit=self.current_leader_name_text,
             down_widget=self.more_scores_button,
@@ -445,6 +454,10 @@ class TournamentButton:
         )
 
     def _update_lock_state(self) -> None:
+
+        # no-op if our widget is dead.
+        if not self.button:
+            return
 
         if self.game is None:
             return
@@ -725,8 +738,8 @@ class TournamentButton:
         # Now, if this fee allows ads and we support video ads, show the
         # 'or ad' version.
         if USE_ENTRY_FEES:
-            if allow_ads and plus.has_video_ads():
-                ads_enabled = plus.have_incentivized_ad()
+            if allow_ads and plus.ads.has_video_ads():
+                ads_enabled = plus.ads.have_incentivized_ad()
                 bui.imagewidget(
                     edit=self.entry_fee_ad_image,
                     opacity=1.0 if ads_enabled else 0.25,

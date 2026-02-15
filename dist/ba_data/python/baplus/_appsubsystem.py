@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, override
 from babase import AppSubsystem
 
 import _baplus
+from baplus._ads import AdsSubsystem
 
 if TYPE_CHECKING:
     from typing import Callable, Any
@@ -29,12 +30,13 @@ class PlusAppSubsystem(AppSubsystem):
 
     # pylint: disable=too-many-public-methods
 
-    # Note: this is basically just a wrapper around _baplus for
-    # type-checking purposes. Maybe there's some smart way we could skip
-    # the overhead of this wrapper at runtime.
-
     accounts: AccountV2Subsystem
     cloud: CloudSubsystem
+
+    def __init__(self) -> None:
+
+        #: Ad wrangling functionality.
+        self.ads: AdsSubsystem = AdsSubsystem()
 
     @override
     def on_app_loading(self) -> None:
@@ -59,12 +61,36 @@ class PlusAppSubsystem(AppSubsystem):
         return _baplus.game_service_has_leaderboard(game, config)
 
     @staticmethod
-    def get_master_server_address(source: int = -1, version: int = 1) -> str:
+    def get_legacy_master_server_address() -> str:
+        """Return the address of the old master server.
+
+        :meta private:
+        """
+        return _baplus.get_legacy_master_server_address()
+
+    @staticmethod
+    def get_master_server_address() -> str:
         """Return the address of the master server.
 
         :meta private:
         """
-        return _baplus.get_master_server_address(source, version)
+        return _baplus.get_master_server_address()
+
+    @staticmethod
+    def get_bootstrap_server_addresses() -> list[str]:
+        """Return addresses we can use to establish regional connection.
+
+        :meta private:
+        """
+        return _baplus.get_bootstrap_server_addresses()
+
+    @staticmethod
+    def get_bootstrap_server_address() -> str:
+        """Return address we can use to establish regional connection.
+
+        :meta private:
+        """
+        return _baplus.get_bootstrap_server_address()
 
     @staticmethod
     def get_classic_news_show() -> str:
@@ -75,16 +101,6 @@ class PlusAppSubsystem(AppSubsystem):
     def get_price(item: str) -> str | None:
         """:meta private:"""
         return _baplus.get_price(item)
-
-    @staticmethod
-    def get_v1_account_product_purchased(item: str) -> bool:
-        """:meta private:"""
-        return _baplus.get_v1_account_product_purchased(item)
-
-    @staticmethod
-    def get_v1_account_product_purchases_state() -> int:
-        """:meta private:"""
-        return _baplus.get_v1_account_product_purchases_state()
 
     @staticmethod
     def get_v1_account_display_string(full: bool = True) -> str:
@@ -126,13 +142,13 @@ class PlusAppSubsystem(AppSubsystem):
         """:meta private:"""
         return _baplus.get_v1_account_state_num()
 
-    @staticmethod
-    def get_v1_account_ticket_count() -> int:
-        """Return the number of tickets for the current account.
+    # @staticmethod
+    # def get_v1_account_ticket_count() -> int:
+    #     """Return the number of tickets for the current account.
 
-        :meta private:
-        """
-        return _baplus.get_v1_account_ticket_count()
+    #     :meta private:
+    #     """
+    #     return _baplus.get_v1_account_ticket_count()
 
     @staticmethod
     def get_v1_account_type() -> str:
@@ -256,50 +272,6 @@ class PlusAppSubsystem(AppSubsystem):
         :meta private:
         """
         return _baplus.supports_purchases()
-
-    @staticmethod
-    def have_incentivized_ad() -> bool:
-        """Is an incentivized ad available?
-
-        :meta private:
-        """
-        return _baplus.have_incentivized_ad()
-
-    @staticmethod
-    def has_video_ads() -> bool:
-        """Are video ads available?
-
-        :meta private:
-        """
-        return _baplus.has_video_ads()
-
-    @staticmethod
-    def can_show_ad() -> bool:
-        """Can we show an ad?
-
-        :meta private:
-        """
-        return _baplus.can_show_ad()
-
-    @staticmethod
-    def show_ad(
-        purpose: str, on_completion_call: Callable[[], None] | None = None
-    ) -> None:
-        """Show an ad.
-
-        :meta private:
-        """
-        _baplus.show_ad(purpose, on_completion_call)
-
-    @staticmethod
-    def show_ad_2(
-        purpose: str, on_completion_call: Callable[[bool], None] | None = None
-    ) -> None:
-        """Show an ad.
-
-        :meta private:
-        """
-        _baplus.show_ad_2(purpose, on_completion_call)
 
     @staticmethod
     def show_game_service_ui(

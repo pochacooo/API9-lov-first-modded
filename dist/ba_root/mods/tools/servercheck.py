@@ -19,7 +19,7 @@ import babase
 import bascenev1 as bs
 from babase._general import Call
 from tools import logger
-
+from repository import profiles
 blacklist = pdata.get_blacklist()
 
 settings = setting.get_settings_data()
@@ -63,7 +63,7 @@ class checkserver(object):
             else:
                 ipClientMap[ip].append(ros["client_id"])
                 if len(ipClientMap[ip]) >= settings['maxAccountPerIP']:
-                    _babase.chatmessage(
+                    bs.chatmessage(
                         f"Only {settings['maxAccountPerIP']} player per IP allowed, disconnecting this device.",
                         clients=[
                             ros["client_id"]])
@@ -445,3 +445,39 @@ def on_join_request(ip):
         serverdata.ips[ip] = {"lastRequest": time.time(), "count": count}
     else:
         serverdata.ips[ip] = {"lastRequest": time.time(), "count": 0}
+
+
+# this method is running in different thread , be careful while editing
+def account_check(account_id, ip, client_id):
+    if not account_id.startswith("\ue063"):
+        return
+    account_id = account_id.replace("\ue063", "")
+    profile = profiles.get_profile(account_id)
+    if settings["mfa"]["enforce_for_all_players"] or account_id in settings["mfa"]["enforce_for_accounts"]:
+        if profile is None:
+            # check bcs master
+            try:
+                data = urllib.request.urlopen(
+                    f"https://mods.69420555.xyz/verifyownerip?ip={ip}&tag={account_id}")
+            except:
+                _babase.pushcall(Call(bs.chatmessage,
+                                      "Click stats button and login your V2 account, to verify your identity", [client_id]), from_other_thread=True)
+                _babase.pushcall(
+                    Call(bs.disconnect_client, client_id, 2), from_other_thread=True)
+                return
+            profiles.upsert_ip(account_id, ip)
+
+        else:
+            if profile["lastIP"] != ip:
+                # ip changed , do something
+                # disconnect client for now , wiht warning to login bcs website again
+                try:
+                    data = urllib.request.urlopen(
+                        f"https://mods.69420555.xyz/verifyownerip?ip={ip}&tag={account_id}")
+                except:
+                    _babase.pushcall(Call(bs.chatmessage,
+                                          "Click stats button and login your V2 account, to verify your identity", [client_id]), from_other_thread=True)
+                    _babase.pushcall(
+                        Call(bs.disconnect_client, client_id, 2), from_other_thread=True)
+                    return
+                profiles.upsert_ip(account_id, ip)

@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Annotated, override
 from threading import Thread, current_thread, Lock
 
-from efro.util import utc_now
+from efro.util import utc_now, strip_exception_tracebacks
 from efro.terminal import Clr, color_enabled
 from efro.dataclassio import ioprepped, IOAttrs, dataclass_to_json
 
@@ -133,6 +133,7 @@ class LogHandler(logging.Handler):
         cache_time_limit: datetime.timedelta | None,
         echofile_timestamp_format: Literal['default', 'relative'] = 'default',
         launch_time: float | None = None,
+        strict_threads: bool = False,
     ):
         super().__init__()
         # pylint: disable=consider-using-with
@@ -154,10 +155,16 @@ class LogHandler(logging.Handler):
         self._cache_index_offset = 0
         self._cache_lock = Lock()
         self._printed_callback_error = False
-        self._thread_bootstrapped = False
-        self._thread = Thread(target=self._log_thread_main, daemon=True)
         if __debug__:
             self._last_slow_emit_warning_time: float | None = None
+
+        # Strict-threads mode means we don't use a daemon thread, but then
+        # it is up to the user to explicitly call shutdown() to get our
+        # background thread to exit.
+        self._thread_bootstrapped = False
+        self._thread = Thread(
+            target=self._log_thread_main, daemon=not strict_threads
+        )
         self._thread.start()
 
         # Spin until our thread is up and running; otherwise we could
@@ -206,9 +213,13 @@ class LogHandler(logging.Handler):
     def _log_thread_main(self) -> None:
         self._event_loop = asyncio.new_event_loop()
 
+        # Try to avoid reference loops from exception tracebacks.
+        self._event_loop.set_exception_handler(_asyncio_exception_handler)
+
         # In our background thread event loop we do a fair amount of
         # slow synchronous stuff such as mucking with the log cache.
-        # Let's avoid getting tons of warnings about this in debug mode.
+        # Let's avoid getting tons of warnings about this in debug mode
+        # since being ultra-real-time is not a huge priority here.
         self._event_loop.slow_callback_duration = 2.0  # Default is 0.1
 
         # NOTE: if we ever use default threadpool at all we should allow
@@ -514,23 +525,33 @@ class LogHandler(logging.Handler):
             traceback.print_exc(file=self._echofile)
 
     def shutdown(self) -> None:
-        """Block until all pending logs/prints are done."""
-        done = False
+        """Kill bg thread and flush pending logs/prints."""
+        assert current_thread() is not self._thread
+
+        # done = False
         self.file_flush('stdout')
         self.file_flush('stderr')
 
-        def _set_done() -> None:
-            nonlocal done
-            done = True
+        # Push a message to our thread to break out of its loop, and
+        # then wait for the thread to exit. This will effectively flush
+        # all pending messages up to this point but will leave the loop
+        # intact so if anyone pushes a message at this point it won't
+        # error (though it will never get processed either).
+        self._event_loop.call_soon_threadsafe(self._event_loop.stop)
+        self._thread.join()
 
-        self._event_loop.call_soon_threadsafe(_set_done)
+        # def _set_done() -> None:
+        #     nonlocal done
+        #     done = True
 
-        starttime = time.monotonic()
-        while not done:
-            if time.monotonic() - starttime > 5.0:
-                print('LogHandler shutdown hung!!!', file=sys.stderr)
-                break
-            time.sleep(0.01)
+        # self._event_loop.call_soon_threadsafe(_set_done)
+
+        # starttime = time.monotonic()
+        # while not done:
+        #     if time.monotonic() - starttime > 5.0:
+        #         print('LogHandler shutdown hung!!!', file=sys.stderr)
+        #         break
+        #     time.sleep(0.01)
 
     def file_flush(self, name: str) -> None:
         """Send raw stdout/stderr flush to the logger to be collated."""
@@ -670,6 +691,8 @@ def setup_logging(
     cache_size_limit: int = 0,
     cache_time_limit: datetime.timedelta | None = None,
     launch_time: float | None = None,
+    strict_threads: bool = False,
+    standard_filters: bool = True,
 ) -> LogHandler:
     """Set up our logging environment.
 
@@ -704,7 +727,42 @@ def setup_logging(
         cache_size_limit=cache_size_limit,
         cache_time_limit=cache_time_limit,
         launch_time=launch_time,
+        strict_threads=strict_threads,
     )
+
+    if standard_filters:
+
+        # The warning for retrying a connection really should be an info.
+        # See https://github.com/urllib3/urllib3/issues/2583
+        class _DowngradeURLLib3RetryWarningFilter(logging.Filter):
+            """Downgrades 'retrying' warning to info."""
+
+            @override
+            def filter(self, record: logging.LogRecord) -> bool:
+                if (
+                    record.levelno == logging.WARNING
+                    and 'Retrying (' in record.msg
+                ):
+                    newlevel = logging.INFO
+
+                    record.levelno = newlevel
+                    record.levelname = logging.getLevelName(newlevel)
+
+                    # Since log-level pruning happened before we reached
+                    # this point, we're still destined to show up even
+                    # if we change level to something that's not being
+                    # displayed. So let's manually check level and
+                    # discard if this new level shouldn't be shown.
+                    if not logging.getLogger(record.name).isEnabledFor(
+                        newlevel
+                    ):
+                        return False
+
+                return True
+
+        logging.getLogger('urllib3.connectionpool').addFilter(
+            _DowngradeURLLib3RetryWarningFilter()
+        )
 
     # Note: going ahead with force=True here so that we replace any
     # existing logger. Though we warn if it looks like we are doing that
@@ -731,3 +789,15 @@ def setup_logging(
         sys.stderr = FileLogEcho(sys.stderr, 'stderr', loghandler)
 
     return loghandler
+
+
+def _asyncio_exception_handler(
+    loop: asyncio.AbstractEventLoop, context: dict[str, Any]
+) -> None:
+    # Do default behavior (should log the exception) and then rip out
+    # exception tracebacks to hopefully avoid reference cycles which
+    # would require cyclic garbage collection.
+    loop.default_exception_handler(context)
+    exc = context.get('exception')
+    if isinstance(exc, BaseException):
+        strip_exception_tracebacks(exc)

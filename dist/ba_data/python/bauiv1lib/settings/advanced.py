@@ -1,6 +1,5 @@
 # Released under the MIT License. See LICENSE for details.
 #
-# pylint: disable=too-many-lines
 
 """UI functionality for advanced settings."""
 
@@ -12,6 +11,7 @@ from typing import TYPE_CHECKING, override
 
 from bacommon.locale import LocaleResolved
 from bauiv1lib.popup import PopupMenu
+from bauiv1lib.utils import scroll_fade_bottom, scroll_fade_top
 import bauiv1 as bui
 
 if TYPE_CHECKING:
@@ -73,13 +73,16 @@ class AdvancedSettingsWindow(bui.MainWindow):
         self._scroll_height = target_height - 25
         scroll_bottom = yoffs - 56 - self._scroll_height
 
+        # Go with full-screen scrollable area in small ui.
+        if uiscale is bui.UIScale.SMALL:
+            self._scroll_height += 27
+            scroll_bottom += 1
+
         super().__init__(
             root_widget=bui.containerwidget(
                 size=(self._width, self._height),
                 toolbar_visibility=(
-                    'menu_minimal'
-                    if uiscale is bui.UIScale.SMALL
-                    else 'menu_full'
+                    'menu_full' if bui.in_main_menu() else 'menu_minimal'
                 ),
                 scale=scale,
             ),
@@ -89,7 +92,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
             refresh_on_screen_size_changes=uiscale is bui.UIScale.SMALL,
         )
 
-        self._prev_lang = ''
+        self._prev_lang: str | None = ''
         self._prev_lang_list: list[str] = []
         self._complete_langs_list: list | None = None
         self._complete_langs_error = False
@@ -100,7 +103,11 @@ class AdvancedSettingsWindow(bui.MainWindow):
         self._show_always_use_internal_keyboard = not app.env.vr
 
         self._sub_width = min(550, self._scroll_width * 0.95)
-        self._sub_height = 870.0
+        self._sub_height = 920.0
+
+        # For fullscreen scrollable, account for toolbar.
+        if uiscale is bui.UIScale.SMALL:
+            self._sub_height += 27
 
         if self._show_always_use_internal_keyboard:
             self._sub_height += 62
@@ -134,6 +141,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
         else:
             self._back_button = bui.buttonwidget(
                 parent=self._root_widget,
+                id=f'{self.main_window_id_prefix}|back',
                 position=(50, yoffs - 48),
                 size=(60, 60),
                 scale=0.8,
@@ -145,20 +153,6 @@ class AdvancedSettingsWindow(bui.MainWindow):
             bui.containerwidget(
                 edit=self._root_widget, cancel_button=self._back_button
             )
-
-        self._title_text = bui.textwidget(
-            parent=self._root_widget,
-            position=(
-                self._width * 0.5,
-                yoffs - (43 if uiscale is bui.UIScale.SMALL else 25),
-            ),
-            size=(0, 0),
-            scale=0.75 if uiscale is bui.UIScale.SMALL else 1.0,
-            text=bui.Lstr(resource=f'{self._r}.titleText'),
-            color=app.ui_v1.title_color,
-            h_align='center',
-            v_align='center',
-        )
 
         self._scrollwidget = bui.scrollwidget(
             parent=self._root_widget,
@@ -173,12 +167,49 @@ class AdvancedSettingsWindow(bui.MainWindow):
             selection_loops_to_parent=True,
             border_opacity=0.4,
         )
+        bui.containerwidget(
+            edit=self._root_widget, selected_child=self._scrollwidget
+        )
         bui.widget(edit=self._scrollwidget, right_widget=self._scrollwidget)
+
         self._subcontainer = bui.containerwidget(
             parent=self._scrollwidget,
             size=(self._sub_width, self._sub_height),
             background=False,
             selection_loops_to_parent=True,
+        )
+
+        # With full-screen scrolling, fade content as it approaches
+        # toolbars. (but only in the main menu where we're showing said
+        # toolbars).
+        if uiscale is bui.UIScale.SMALL and bui.in_main_menu():
+            scroll_fade_top(
+                self._root_widget,
+                self._width * 0.5 - self._scroll_width * 0.5,
+                scroll_bottom,
+                self._scroll_width,
+                self._scroll_height,
+            )
+            scroll_fade_bottom(
+                self._root_widget,
+                self._width * 0.5 - self._scroll_width * 0.5,
+                scroll_bottom,
+                self._scroll_width,
+                self._scroll_height,
+            )
+
+        self._title_text = bui.textwidget(
+            parent=self._root_widget,
+            position=(
+                self._width * 0.5,
+                yoffs - (43 if uiscale is bui.UIScale.SMALL else 25),
+            ),
+            size=(0, 0),
+            scale=0.75 if uiscale is bui.UIScale.SMALL else 1.0,
+            text=bui.Lstr(resource=f'{self._r}.titleText'),
+            color=app.ui_v1.title_color,
+            h_align='center',
+            v_align='center',
         )
 
         self._rebuild()
@@ -206,8 +237,8 @@ class AdvancedSettingsWindow(bui.MainWindow):
         )
 
     @override
-    def on_main_window_close(self) -> None:
-        self._save_state()
+    def main_window_should_preserve_selection(self) -> bool:
+        return True
 
     @staticmethod
     def _preload_modules() -> None:
@@ -275,27 +306,21 @@ class AdvancedSettingsWindow(bui.MainWindow):
 
         locale_ss = bui.app.locale
 
-        # available_languages = bui.app.lang.available_languages
-
         # Build a list of long-values for locales we are able to display.
-        can_display_full_unicode = bui.supports_unicode_display()
         available_languages = sorted(
-            l.locale.long_value
-            for l in LocaleResolved
-            if (
-                can_display_full_unicode
-                or not locale_ss.requires_full_unicode_display(l)
-            )
+            lr.locale.long_value
+            for lr in LocaleResolved
+            if (locale_ss.can_display_locale(lr.locale))
         )
 
         # Don't rebuild if the menu is open or if our language and
         # language-list hasn't changed.
 
         # NOTE - although we now support widgets updating their own
-        # translations, we still change the label formatting on the language
-        # menu based on the language so still need this. ...however we could
-        # make this more limited to it only rebuilds that one menu instead
-        # of everything.
+        # translations, we still change the label formatting on the
+        # language menu based on the language so still need this.
+        # ...however we could make this more limited to it only rebuilds
+        # that one menu instead of everything.
         if self._menu_open or (
             self._prev_lang == bui.app.config.get('Lang', None)
             and self._prev_lang_list == available_languages
@@ -310,6 +335,11 @@ class AdvancedSettingsWindow(bui.MainWindow):
             child.delete()
 
         v = self._sub_height - 35
+
+        # For fullscreen scrollable, account for toolbar.
+        uiscale = bui.app.ui_v1.uiscale
+        if uiscale is bui.UIScale.SMALL:
+            v -= 27
 
         v -= self._spacing * 1.2
 
@@ -381,11 +411,12 @@ class AdvancedSettingsWindow(bui.MainWindow):
 
         self._language_popup = PopupMenu(
             parent=self._subcontainer,
+            button_id=f'{self.main_window_id_prefix}|language',
             position=(210, v - 19),
             width=250,
             opening_call=bui.WeakCall(self._on_menu_open),
             closing_call=bui.WeakCall(self._on_menu_close),
-            autoselect=False,
+            autoselect=True,
             on_value_change_call=bui.WeakCall(self._on_menu_choice),
             choices=['Auto'] + available_languages,
             button_size=(300, 60),
@@ -410,6 +441,13 @@ class AdvancedSettingsWindow(bui.MainWindow):
             current_choice=cur_lang,
         )
 
+        if self._back_button is not None:
+            bui.widget(
+                edit=self._language_popup.get_button(),
+                up_widget=self._back_button,
+                left_widget=self._back_button,
+            )
+
         v -= self._spacing * 1.8
 
         bui.textwidget(
@@ -432,6 +470,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
         this_button_width = 410
         self._translation_editor_button = bui.buttonwidget(
             parent=self._subcontainer,
+            id=f'{self.main_window_id_prefix}|translationedit',
             position=(self._sub_width / 2 - this_button_width / 2, v - 24),
             size=(this_button_width, 60),
             label=bui.Lstr(
@@ -462,6 +501,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
 
         self._language_inform_checkbox = cbw = bui.checkboxwidget(
             parent=self._subcontainer,
+            id=f'{self.main_window_id_prefix}|langinform',
             position=(50, v - 50),
             size=(self._sub_width - 100, 30),
             autoselect=True,
@@ -484,6 +524,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
 
         self._kick_idle_players_check_box = ConfigCheckBox(
             parent=self._subcontainer,
+            check_box_id=f'{self.main_window_id_prefix}|kickidleplayers',
             position=(50, v),
             size=(self._sub_width - 100, 30),
             configkey='Kick Idle Players',
@@ -495,6 +536,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
         v -= 42
         self._show_game_ping_check_box = ConfigCheckBox(
             parent=self._subcontainer,
+            check_box_id=f'{self.main_window_id_prefix}|showping',
             position=(50, v),
             size=(self._sub_width - 100, 30),
             configkey='Show Ping',
@@ -506,6 +548,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
         v -= 42
         self._show_demos_when_idle_check_box = ConfigCheckBox(
             parent=self._subcontainer,
+            check_box_id=f'{self.main_window_id_prefix}|showdemoswhenidle',
             position=(50, v),
             size=(self._sub_width - 100, 30),
             configkey='Show Demos When Idle',
@@ -517,6 +560,9 @@ class AdvancedSettingsWindow(bui.MainWindow):
         v -= 42
         self._show_deprecated_login_types_check_box = ConfigCheckBox(
             parent=self._subcontainer,
+            check_box_id=(
+                f'{self.main_window_id_prefix}|showdeprecatedlogintypes'
+            ),
             position=(50, v),
             size=(self._sub_width - 100, 30),
             configkey='Show Deprecated Login Types',
@@ -530,6 +576,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
         v -= 42
         self._disable_camera_shake_check_box = ConfigCheckBox(
             parent=self._subcontainer,
+            check_box_id=f'{self.main_window_id_prefix}|disablecamerashake',
             position=(50, v),
             size=(self._sub_width - 100, 30),
             configkey='Disable Camera Shake',
@@ -543,6 +590,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
             v -= 42
             self._disable_gyro_check_box = ConfigCheckBox(
                 parent=self._subcontainer,
+                check_box_id=f'{self.main_window_id_prefix}|disablegyro',
                 position=(50, v),
                 size=(self._sub_width - 100, 30),
                 configkey='Disable Camera Gyro',
@@ -558,17 +606,16 @@ class AdvancedSettingsWindow(bui.MainWindow):
             v -= 42
             self._use_insecure_connections_check_box = ConfigCheckBox(
                 parent=self._subcontainer,
+                check_box_id=(
+                    f'{self.main_window_id_prefix}|useinsecureconnections'
+                ),
                 position=(50, v),
                 size=(self._sub_width - 100, 30),
                 configkey='Use Insecure Connections',
                 autoselect=True,
-                # displayname='USE INSECURE CONNECTIONS',
                 displayname=bui.Lstr(
                     resource=(f'{self._r}.insecureConnectionsText')
                 ),
-                # displayname=bui.Lstr(
-                #     resource=f'{self._r}.alwaysUseInternalKeyboardText'
-                # ),
                 scale=1.0,
                 maxwidth=430,
             )
@@ -576,10 +623,6 @@ class AdvancedSettingsWindow(bui.MainWindow):
                 parent=self._subcontainer,
                 position=(90, v - 20),
                 size=(0, 0),
-                # text=(
-                #     'not recommended, but may allow online play\n'
-                #     'from restricted countries or networks'
-                # ),
                 text=bui.Lstr(
                     resource=(f'{self._r}.insecureConnectionsDescriptionText')
                 ),
@@ -599,6 +642,9 @@ class AdvancedSettingsWindow(bui.MainWindow):
             v -= 42
             self._always_use_internal_keyboard_check_box = ConfigCheckBox(
                 parent=self._subcontainer,
+                check_box_id=(
+                    f'{self.main_window_id_prefix}|alwaysuseinternalkb'
+                ),
                 position=(50, v),
                 size=(self._sub_width - 100, 30),
                 configkey='Always Use Internal Keyboard',
@@ -634,6 +680,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
         this_button_width = 410
         self._modding_guide_button = bui.buttonwidget(
             parent=self._subcontainer,
+            id=f'{self.main_window_id_prefix}|moddingguide',
             position=(self._sub_width / 2 - this_button_width / 2, v - 10),
             size=(this_button_width, 60),
             autoselect=True,
@@ -648,6 +695,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
 
         self._dev_tools_button = bui.buttonwidget(
             parent=self._subcontainer,
+            id=f'{self.main_window_id_prefix}|devtools',
             position=(self._sub_width / 2 - this_button_width / 2, v - 10),
             size=(this_button_width, 60),
             autoselect=True,
@@ -686,6 +734,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
 
         self._show_user_mods_button = bui.buttonwidget(
             parent=self._subcontainer,
+            id=f'{self.main_window_id_prefix}|showusermods',
             position=(self._sub_width / 2 - this_button_width / 2, v - 10),
             size=(this_button_width, 60),
             autoselect=True,
@@ -698,6 +747,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
 
         self._plugins_button = bui.buttonwidget(
             parent=self._subcontainer,
+            id=f'{self.main_window_id_prefix}|plugins',
             position=(self._sub_width / 2 - this_button_width / 2, v - 10),
             size=(this_button_width, 60),
             autoselect=True,
@@ -713,6 +763,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
             v -= self._extra_button_spacing
             self._vr_test_button = bui.buttonwidget(
                 parent=self._subcontainer,
+                id=f'{self.main_window_id_prefix}|vrtest',
                 position=(self._sub_width / 2 - this_button_width / 2, v - 14),
                 size=(this_button_width, 60),
                 autoselect=True,
@@ -728,6 +779,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
             v -= self._extra_button_spacing
             self._net_test_button = bui.buttonwidget(
                 parent=self._subcontainer,
+                id=f'{self.main_window_id_prefix}|nettest',
                 position=(self._sub_width / 2 - this_button_width / 2, v - 14),
                 size=(this_button_width, 60),
                 autoselect=True,
@@ -741,6 +793,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
         v -= 70
         self._benchmarks_button = bui.buttonwidget(
             parent=self._subcontainer,
+            id=f'{self.main_window_id_prefix}|benchmarks',
             position=(self._sub_width / 2 - this_button_width / 2, v - 14),
             size=(this_button_width, 60),
             autoselect=True,
@@ -752,6 +805,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
         v -= 100
         self._send_info_button = bui.buttonwidget(
             parent=self._subcontainer,
+            id=f'{self.main_window_id_prefix}|sendinfo',
             position=(self._sub_width / 2 - this_button_width / 2, v - 14),
             size=(this_button_width, 60),
             autoselect=True,
@@ -761,7 +815,7 @@ class AdvancedSettingsWindow(bui.MainWindow):
         )
 
         for child in self._subcontainer.get_children():
-            bui.widget(edit=child, show_buffer_bottom=30, show_buffer_top=20)
+            bui.widget(edit=child, show_buffer_bottom=80, show_buffer_top=80)
 
         pbtn = bui.get_special_widget('squad_button')
         bui.widget(edit=self._scrollwidget, right_widget=pbtn)
@@ -770,8 +824,6 @@ class AdvancedSettingsWindow(bui.MainWindow):
                 edit=self._scrollwidget,
                 left_widget=bui.get_special_widget('back_button'),
             )
-
-        self._restore_state()
 
     def _show_restart_needed(self, value: Any) -> None:
         del value  # Unused.
@@ -790,20 +842,14 @@ class AdvancedSettingsWindow(bui.MainWindow):
     def _on_vr_test_press(self) -> None:
         from bauiv1lib.settings.vrtesting import VRTestingWindow
 
-        # no-op if we're not in control.
-        if not self.main_window_has_control():
-            return
-
-        self.main_window_replace(VRTestingWindow(transition='in_right'))
+        self.main_window_replace(lambda: VRTestingWindow(transition='in_right'))
 
     def _on_net_test_press(self) -> None:
         from bauiv1lib.settings.nettesting import NetTestingWindow
 
-        # no-op if we're not in control.
-        if not self.main_window_has_control():
-            return
-
-        self.main_window_replace(NetTestingWindow(transition='in_right'))
+        self.main_window_replace(
+            lambda: NetTestingWindow(transition='in_right')
+        )
 
     def _on_friend_promo_code_press(self) -> None:
         from bauiv1lib import appinvite
@@ -820,191 +866,31 @@ class AdvancedSettingsWindow(bui.MainWindow):
     def _on_plugins_button_press(self) -> None:
         from bauiv1lib.settings.plugins import PluginWindow
 
-        # no-op if we're not in control.
-        if not self.main_window_has_control():
-            return
-
         self.main_window_replace(
-            PluginWindow(origin_widget=self._plugins_button)
+            lambda: PluginWindow(origin_widget=self._plugins_button)
         )
 
     def _on_dev_tools_button_press(self) -> None:
         # pylint: disable=cyclic-import
         from bauiv1lib.settings.devtools import DevToolsWindow
 
-        # no-op if we're not in control.
-        if not self.main_window_has_control():
-            return
-
         self.main_window_replace(
-            DevToolsWindow(origin_widget=self._dev_tools_button)
+            lambda: DevToolsWindow(origin_widget=self._dev_tools_button)
         )
 
     def _on_send_info_press(self) -> None:
         from bauiv1lib.sendinfo import SendInfoWindow
 
-        # no-op if we're not in control.
-        if not self.main_window_has_control():
-            return
-
         self.main_window_replace(
-            SendInfoWindow(origin_widget=self._send_info_button)
+            lambda: SendInfoWindow(origin_widget=self._send_info_button)
         )
 
     def _on_benchmark_press(self) -> None:
         from bauiv1lib.settings.benchmarks import BenchmarksAndStressTestsWindow
 
-        # no-op if we're not in control.
-        if not self.main_window_has_control():
-            return
-
         self.main_window_replace(
-            BenchmarksAndStressTestsWindow(transition='in_right')
+            lambda: BenchmarksAndStressTestsWindow(transition='in_right')
         )
-
-    def _save_state(self) -> None:
-        # pylint: disable=too-many-branches
-        # pylint: disable=too-many-statements
-        try:
-            sel = self._root_widget.get_selected_child()
-            if sel == self._scrollwidget:
-                sel = self._subcontainer.get_selected_child()
-                if sel == self._vr_test_button:
-                    sel_name = 'VRTest'
-                elif sel == self._net_test_button:
-                    sel_name = 'NetTest'
-                elif sel == self._send_info_button:
-                    sel_name = 'SendInfo'
-                elif sel == self._benchmarks_button:
-                    sel_name = 'Benchmarks'
-                elif sel == self._kick_idle_players_check_box.widget:
-                    sel_name = 'KickIdlePlayers'
-                elif sel == self._show_demos_when_idle_check_box.widget:
-                    sel_name = 'ShowDemosWhenIdle'
-                elif sel == self._show_deprecated_login_types_check_box.widget:
-                    sel_name = 'ShowDeprecatedLoginTypes'
-                elif sel == self._show_game_ping_check_box.widget:
-                    sel_name = 'ShowPing'
-                elif sel == self._disable_camera_shake_check_box.widget:
-                    sel_name = 'DisableCameraShake'
-                elif (
-                    self._always_use_internal_keyboard_check_box is not None
-                    and sel
-                    == self._always_use_internal_keyboard_check_box.widget
-                ):
-                    sel_name = 'AlwaysUseInternalKeyboard'
-                elif (
-                    self._use_insecure_connections_check_box is not None
-                    and sel == self._use_insecure_connections_check_box.widget
-                ):
-                    sel_name = 'UseInsecureConnections'
-                elif (
-                    self._disable_gyro_check_box is not None
-                    and sel == self._disable_gyro_check_box.widget
-                ):
-                    sel_name = 'DisableGyro'
-                elif (
-                    self._language_popup is not None
-                    and sel == self._language_popup.get_button()
-                ):
-                    sel_name = 'Languages'
-                elif sel == self._translation_editor_button:
-                    sel_name = 'TranslationEditor'
-                elif sel == self._show_user_mods_button:
-                    sel_name = 'ShowUserMods'
-                elif sel == self._plugins_button:
-                    sel_name = 'Plugins'
-                elif sel == self._dev_tools_button:
-                    sel_name = 'DevTools'
-                elif sel == self._modding_guide_button:
-                    sel_name = 'ModdingGuide'
-                elif sel == self._language_inform_checkbox:
-                    sel_name = 'LangInform'
-                else:
-                    raise ValueError(f'unrecognized selection \'{sel}\'')
-            elif sel == self._back_button:
-                sel_name = 'Back'
-            else:
-                raise ValueError(f'unrecognized selection \'{sel}\'')
-            assert bui.app.classic is not None
-            bui.app.ui_v1.window_states[type(self)] = {'sel_name': sel_name}
-
-        except Exception:
-            logging.exception('Error saving state for %s.', self)
-
-    def _restore_state(self) -> None:
-        # pylint: disable=too-many-branches
-        # pylint: disable=too-many-statements
-        try:
-            assert bui.app.classic is not None
-            sel_name = bui.app.ui_v1.window_states.get(type(self), {}).get(
-                'sel_name'
-            )
-            if sel_name == 'Back':
-                sel = self._back_button
-            else:
-                bui.containerwidget(
-                    edit=self._root_widget, selected_child=self._scrollwidget
-                )
-                if sel_name == 'VRTest':
-                    sel = self._vr_test_button
-                elif sel_name == 'NetTest':
-                    sel = self._net_test_button
-                elif sel_name == 'SendInfo':
-                    sel = self._send_info_button
-                elif sel_name == 'Benchmarks':
-                    sel = self._benchmarks_button
-                elif sel_name == 'KickIdlePlayers':
-                    sel = self._kick_idle_players_check_box.widget
-                elif sel_name == 'ShowDemosWhenIdle':
-                    sel = self._show_demos_when_idle_check_box.widget
-                elif sel_name == 'ShowDeprecatedLoginTypes':
-                    sel = self._show_deprecated_login_types_check_box.widget
-                elif sel_name == 'ShowPing':
-                    sel = self._show_game_ping_check_box.widget
-                elif sel_name == 'DisableCameraShake':
-                    sel = self._disable_camera_shake_check_box.widget
-                elif (
-                    sel_name == 'AlwaysUseInternalKeyboard'
-                    and self._always_use_internal_keyboard_check_box is not None
-                ):
-                    sel = self._always_use_internal_keyboard_check_box.widget
-                elif (
-                    sel_name == 'UseInsecureConnections'
-                    and self._use_insecure_connections_check_box is not None
-                ):
-                    sel = self._use_insecure_connections_check_box.widget
-                elif (
-                    sel_name == 'DisableGyro'
-                    and self._disable_gyro_check_box is not None
-                ):
-                    sel = self._disable_gyro_check_box.widget
-                elif (
-                    sel_name == 'Languages' and self._language_popup is not None
-                ):
-                    sel = self._language_popup.get_button()
-                elif sel_name == 'TranslationEditor':
-                    sel = self._translation_editor_button
-                elif sel_name == 'ShowUserMods':
-                    sel = self._show_user_mods_button
-                elif sel_name == 'Plugins':
-                    sel = self._plugins_button
-                elif sel_name == 'DevTools':
-                    sel = self._dev_tools_button
-                elif sel_name == 'ModdingGuide':
-                    sel = self._modding_guide_button
-                elif sel_name == 'LangInform':
-                    sel = self._language_inform_checkbox
-                else:
-                    sel = None
-                if sel is not None:
-                    bui.containerwidget(
-                        edit=self._subcontainer,
-                        selected_child=sel,
-                        visible_child=sel,
-                    )
-        except Exception:
-            logging.exception('Error restoring state for %s.', self)
 
     def _on_menu_open(self) -> None:
         self._menu_open = True
@@ -1025,9 +911,8 @@ class AdvancedSettingsWindow(bui.MainWindow):
 
         cfg.apply_and_commit()
 
-        self._save_state()
+        self.main_window_save_shared_state()
 
-        # bui.app.lang.setlanguage(None if choice == 'Auto' else choice)
         bui.apptimer(0.1, bui.WeakCall(self._rebuild))
 
     def _completed_langs_cb(self, results: dict[str, Any] | None) -> None:

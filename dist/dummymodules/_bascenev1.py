@@ -1123,21 +1123,21 @@ def camerashake(intensity: float = 1.0) -> None:
     return None
 
 
-def capture_gamepad_input(call: Callable[[dict], None]) -> None:
-    """(internal)
-
-    Add a callable to be called for subsequent gamepad events.
+def capture_game_controller_input(call: Callable[[dict], None]) -> None:
+    """Add a callable to be called for subsequent game controller events.
     The method is passed a dict containing info about the event.
+
+    :meta private:
     """
     # This is a dummy stub; the actual implementation is native code.
     return None
 
 
 def capture_keyboard_input(call: Callable[[dict], None]) -> None:
-    """(internal)
-
-    Add a callable to be called for subsequent keyboard-game-pad events.
+    """Add a callable to be called for subsequent keyboard-game-pad events.
     The method is passed a dict containing info about the event.
+
+    :meta private:
     """
     # This is a dummy stub; the actual implementation is native code.
     return None
@@ -1236,11 +1236,11 @@ def get_collision_info(*args: Any) -> Any:
     return _uninferrable()
 
 
-def get_configurable_game_pads() -> list:
-    """(internal)
-
-    Returns a list of the currently connected gamepads that can be
+def get_configurable_game_controllers() -> list:
+    """Returns a list of the currently connected gamepads that can be
     configured.
+
+    :meta private:
     """
     # This is a dummy stub; the actual implementation is native code.
     return list()
@@ -1300,9 +1300,17 @@ def get_game_roster() -> list[dict[str, Any]]:
 
 
 def get_local_active_input_devices_count() -> int:
-    """(internal)"""
+    """:meta private:"""
     # This is a dummy stub; the actual implementation is native code.
     return int()
+
+
+def get_main_ui_input_device() -> bascenev1.InputDevice | None:
+    """Return the input-device currently controlling the main ui, or
+    None if there is none.
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return InputDevice()
 
 
 def get_package_collision_mesh(
@@ -1385,16 +1393,6 @@ def get_replay_speed_exponent() -> int:
     return int()
 
 
-def get_ui_input_device() -> bascenev1.InputDevice | None:
-    """(internal)
-
-    Returns the input-device that currently owns the user interface, or
-    None if there is none.
-    """
-    # This is a dummy stub; the actual implementation is native code.
-    return InputDevice()
-
-
 # Show that our return type varies based on "doraise" value:
 @overload
 def getactivity(doraise: Literal[True] = True) -> bascenev1.Activity: ...
@@ -1463,11 +1461,11 @@ def getinputdevice(
 
 
 def getinputdevice(name: str, unique_id: str, doraise: bool = True) -> Any:
-    """(internal)
-
-    Given a type name and a unique identifier, returns an InputDevice.
+    """Given a type name and a unique identifier, returns an InputDevice.
     Throws an Exception if the input-device is not found, or returns None
     if 'doraise' is False.
+
+    :meta private:
     """
     return None
 
@@ -1583,11 +1581,7 @@ def is_replay_paused() -> bool:
 
 
 def ls_input_devices() -> None:
-    """Print debugging info about game objects.
-
-    This call only functions in debug builds of the game.
-    It prints various info about the current object count, etc.
-    """
+    """Log debugging info about input devices."""
     # This is a dummy stub; the actual implementation is native code.
     return None
 
@@ -1697,19 +1691,28 @@ def register_session(session: bascenev1.Session) -> bascenev1.SessionData:
     return bascenev1.SessionData()
 
 
-def release_gamepad_input() -> None:
-    """(internal)
+def release_game_controller_input() -> None:
+    """Resumes normal game controller event processing.
 
-    Resumes normal gamepad event processing.
+    :meta private:
     """
     # This is a dummy stub; the actual implementation is native code.
     return None
 
 
 def release_keyboard_input() -> None:
-    """(internal)
+    """Resumes normal keyboard event processing.
 
-    Resumes normal keyboard event processing.
+    :meta private:
+    """
+    # This is a dummy stub; the actual implementation is native code.
+    return None
+
+
+def reload_hooks() -> None:
+    """Reload functions and other objects held by the native layer.
+    Call this if you replace things in a hooks module to get the
+    native layer to see your changes.
     """
     # This is a dummy stub; the actual implementation is native code.
     return None
@@ -1843,7 +1846,7 @@ def set_replay_speed_exponent(speed: int) -> None:
 
 
 def set_touchscreen_editing(editing: bool) -> None:
-    """(internal)"""
+    """:meta private:"""
     # This is a dummy stub; the actual implementation is native code.
     return None
 

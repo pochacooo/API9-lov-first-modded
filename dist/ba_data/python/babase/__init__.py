@@ -17,8 +17,6 @@ functionality from here and reexpose it in a more focused way.
 # dependency loops. The exception is TYPE_CHECKING blocks and
 # annotations since those aren't evaluated at runtime.
 
-# from efro.util import set_canonical_module_names
-
 import _babase
 from _babase import (
     add_clean_frame_callback,
@@ -30,6 +28,7 @@ from _babase import (
     apptime,
     apptimer,
     AppTimer,
+    atexit,
     asset_loads_allowed,
     fullscreen_control_available,
     fullscreen_control_get,
@@ -59,6 +58,7 @@ from _babase import (
     get_replays_dir,
     get_string_height,
     get_string_width,
+    get_suppress_config_and_state_writes,
     get_ui_scale,
     get_v1_cloud_log_file_path,
     get_virtual_safe_area_size,
@@ -69,7 +69,7 @@ from _babase import (
     in_logic_thread,
     in_main_menu,
     increment_analytics_count,
-    invoke_main_menu,
+    request_main_ui,
     is_os_playing_music,
     is_xcode_build,
     lock_all_input,
@@ -79,6 +79,7 @@ from _babase import (
     mac_music_app_play_playlist,
     mac_music_app_set_volume,
     mac_music_app_stop,
+    menu_press,
     music_player_play,
     music_player_set_volume,
     music_player_shutdown,
@@ -93,9 +94,9 @@ from _babase import (
     overlay_web_browser_is_supported,
     overlay_web_browser_open_url,
     print_load_info,
-    push_back_press,
     pushcall,
     quit,
+    reload_hooks,
     reload_media,
     request_permission,
     safecolor,
@@ -103,14 +104,15 @@ from _babase import (
     set_analytics_screen,
     set_low_level_config_value,
     set_thread_name,
-    set_ui_account_state,
-    set_ui_input_device,
+    set_main_ui_input_device,
+    set_account_sign_in_state,
     set_ui_scale,
     show_progress_bar,
     shutdown_suppress_begin,
     shutdown_suppress_end,
     shutdown_suppress_count,
     SimpleSound,
+    suppress_config_and_state_writes,
     supports_max_fps,
     supports_vsync,
     supports_unicode_display,
@@ -134,17 +136,18 @@ from babase._appconfig import AppConfig
 from babase._apputils import (
     handle_leftover_v1_cloud_log_file,
     is_browser_likely_available,
-    garbage_collect,
     get_remote_app_name,
     AppHealthSubsystem,
     utc_now_cloud,
 )
 from babase._cloud import CloudSubscription
 from babase._devconsole import (
+    DevConsoleButtonDef,
     DevConsoleTab,
     DevConsoleTabEntry,
     DevConsoleSubsystem,
 )
+from babase._discord import DiscordSubsystem
 from babase._emptyappmode import EmptyAppMode
 from babase._error import (
     ContextError,
@@ -162,6 +165,7 @@ from babase._error import (
     SessionNotFoundError,
     DelegateNotFoundError,
 )
+from babase._gc import GarbageCollectionSubsystem
 from babase._general import (
     DisplayTime,
     AppTime,
@@ -176,7 +180,14 @@ from babase._general import (
 )
 from babase._language import Lstr, LanguageSubsystem
 from babase._locale import LocaleSubsystem
-from babase._logging import balog, applog, lifecyclelog
+from babase._logging import (
+    balog,
+    accountlog,
+    applog,
+    lifecyclelog,
+    netlog,
+    uilog,
+)
 from babase._login import LoginAdapter, LoginInfo
 
 from babase._mgen.enums import (
@@ -188,11 +199,8 @@ from babase._mgen.enums import (
 )
 from babase._math import normalized_color, is_point_in_box, vec3validate
 from babase._meta import MetadataSubsystem
-from babase._net import (
-    get_ip_address_type,
-    DEFAULT_REQUEST_TIMEOUT_SECONDS,
-    NetworkSubsystem,
-)
+from babase._env import DEFAULT_REQUEST_TIMEOUT_SECONDS
+from babase._net import get_ip_address_type, NetworkSubsystem
 from babase._plugin import PluginSpec, Plugin, PluginSubsystem
 from babase._stringedit import StringEditAdapter, StringEditSubsystem
 from babase._text import timestring
@@ -201,6 +209,7 @@ from babase._workspace import WorkspaceSubsystem
 _babase.app = app = App()
 
 __all__ = [
+    'accountlog',
     'AccountV2Handle',
     'AccountV2Subsystem',
     'ActivityNotFoundError',
@@ -230,6 +239,7 @@ __all__ = [
     'apptimer',
     'AppTimer',
     'asset_loads_allowed',
+    'atexit',
     'balog',
     'Call',
     'fullscreen_control_available',
@@ -248,9 +258,11 @@ __all__ = [
     'ContextError',
     'ContextRef',
     'DelegateNotFoundError',
+    'DevConsoleButtonDef',
     'DevConsoleTab',
     'DevConsoleTabEntry',
     'DevConsoleSubsystem',
+    'DiscordSubsystem',
     'DisplayTime',
     'displaytime',
     'displaytimer',
@@ -263,7 +275,7 @@ __all__ = [
     'existing',
     'fade_screen',
     'fatal_error',
-    'garbage_collect',
+    'GarbageCollectionSubsystem',
     'get_display_resolution',
     'get_immediate_return_code',
     'get_input_idle_time',
@@ -274,6 +286,7 @@ __all__ = [
     'get_replays_dir',
     'get_string_height',
     'get_string_width',
+    'get_suppress_config_and_state_writes',
     'get_type_name',
     'get_ui_scale',
     'get_virtual_safe_area_size',
@@ -289,7 +302,7 @@ __all__ = [
     'increment_analytics_count',
     'InputDeviceNotFoundError',
     'InputType',
-    'invoke_main_menu',
+    'request_main_ui',
     'is_browser_likely_available',
     'is_browser_likely_available',
     'is_os_playing_music',
@@ -309,6 +322,7 @@ __all__ = [
     'mac_music_app_set_volume',
     'mac_music_app_stop',
     'MapNotFoundError',
+    'menu_press',
     'MetadataSubsystem',
     'music_player_play',
     'music_player_set_volume',
@@ -317,6 +331,7 @@ __all__ = [
     'native_review_request',
     'native_review_request_supported',
     'native_stack_trace',
+    'netlog',
     'NetworkSubsystem',
     'NodeNotFoundError',
     'normalized_color',
@@ -333,10 +348,10 @@ __all__ = [
     'PluginSubsystem',
     'PluginSpec',
     'print_load_info',
-    'push_back_press',
     'pushcall',
     'quit',
     'QuitType',
+    'reload_hooks',
     'reload_media',
     'request_permission',
     'safecolor',
@@ -346,15 +361,16 @@ __all__ = [
     'SessionTeamNotFoundError',
     'set_analytics_screen',
     'set_low_level_config_value',
+    'set_main_ui_input_device',
     'set_thread_name',
-    'set_ui_account_state',
-    'set_ui_input_device',
+    'set_account_sign_in_state',
     'set_ui_scale',
     'show_progress_bar',
     'shutdown_suppress_begin',
     'shutdown_suppress_end',
     'shutdown_suppress_count',
     'SimpleSound',
+    'suppress_config_and_state_writes',
     'SpecialChar',
     'storagename',
     'StringEditAdapter',
@@ -364,6 +380,7 @@ __all__ = [
     'supports_unicode_display',
     'TeamNotFoundError',
     'timestring',
+    'uilog',
     'UIScale',
     'unlock_all_input',
     'update_internal_logger_levels',

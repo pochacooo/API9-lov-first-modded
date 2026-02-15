@@ -97,6 +97,11 @@ class GamepadSettingsWindow(bui.MainWindow):
             )
         )
 
+    @override
+    def main_window_should_preserve_selection(self) -> bool:
+        # Not bothering with this for now.
+        return False
+
     def _get_config_mapping(self, default: bool = False) -> None:
         for button in [
             'buttonJump',
@@ -1034,14 +1039,14 @@ class AwaitGamepadInputWindow(bui.Window):
         self._decrement_timer: bui.AppTimer | None = bui.AppTimer(
             1.0, bui.Call(self._decrement), repeat=True
         )
-        bs.capture_gamepad_input(bui.WeakCall(self._event_callback))
+        bs.capture_game_controller_input(bui.WeakCall(self._event_callback))
 
     def die(self) -> None:
         """Kill the window."""
 
         # This strong-refs us; killing it allow us to die now.
         self._decrement_timer = None
-        bs.release_gamepad_input()
+        bs.release_game_controller_input()
         if self._root_widget:
             bui.containerwidget(edit=self._root_widget, transition='out_scale')
 
