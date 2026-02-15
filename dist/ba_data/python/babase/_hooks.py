@@ -9,6 +9,7 @@ until it broke at runtime. By instead defining such snippets here and then
 capturing references to them all at launch it is possible to allow linting
 and type-checking magic to happen and most issues will be caught immediately.
 """
+
 # (most of these are self-explanatory)
 # pylint: disable=missing-function-docstring
 from __future__ import annotations
@@ -42,7 +43,7 @@ def get_v2_account_id() -> str | None:
             if account is not None:
                 accountid = account.accountid
                 # (Avoids mypy complaints when plus is not present)
-                assert isinstance(accountid, (str, type(None)))
+                assert isinstance(accountid, str | None)
                 return accountid
         return None
     except Exception:

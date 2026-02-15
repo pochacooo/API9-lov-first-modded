@@ -7,6 +7,7 @@ from __future__ import annotations
 import weakref
 from typing import TYPE_CHECKING, override
 
+from bacommon.analytics import ClassicAnalyticsEvent
 import bauiv1 as bui
 import bascenev1 as bs
 
@@ -46,12 +47,12 @@ class NetScanner:
         self._last_selected_host: dict[str, Any] | None = None
 
         self._update_timer = bui.AppTimer(
-            1.0, bui.WeakCall(self.update), repeat=True
+            1.0, bui.WeakCallStrict(self.update), repeat=True
         )
         # Go ahead and run a few *almost* immediately so we don't
         # have to wait a second.
         self.update()
-        bui.apptimer(0.25, bui.WeakCall(self.update))
+        bui.apptimer(0.25, bui.WeakCallStrict(self.update))
 
     def __del__(self) -> None:
         bs.end_host_scanning()
@@ -60,6 +61,12 @@ class NetScanner:
         self._last_selected_host = host
 
     def _on_activate(self, host: dict[str, Any]) -> None:
+
+        bui.app.analytics.submit_event(
+            ClassicAnalyticsEvent(
+                ClassicAnalyticsEvent.EventType.JOIN_NEARBY_PARTY
+            )
+        )
 
         # Store UI location to return to when done.
         if bs.app.classic is not None:
@@ -90,8 +97,8 @@ class NetScanner:
                 size=(self._width / t_scale, 30),
                 selectable=True,
                 color=(1, 1, 1),
-                on_select_call=bui.Call(self._on_select, host),
-                on_activate_call=bui.Call(self._on_activate, host),
+                on_select_call=bui.CallStrict(self._on_select, host),
+                on_activate_call=bui.CallStrict(self._on_activate, host),
                 click_activate=True,
                 text=host['display_string'],
                 h_align='left',

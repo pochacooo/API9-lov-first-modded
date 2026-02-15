@@ -1,12 +1,13 @@
 # Released under the MIT License. See LICENSE for details.
 #
 """Various functionality related to achievements."""
+
 from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
 
-from bacommon.bs import ClassicChestAppearance
+from bacommon.classic import ClassicChestAppearance
 from baclassic._chest import (
     CHEST_APPEARANCE_DISPLAY_INFOS,
     CHEST_APPEARANCE_DISPLAY_INFO_DEFAULT,
@@ -727,7 +728,10 @@ class Achievement:
         )
 
     def get_award_chest_type(self) -> ClassicChestAppearance:
-        """Return the type of chest given for this achievement."""
+        """Return the type of chest given for this achievement.
+
+        :meta private:
+        """
 
         # For now just map our old ticket values to chest types.
         # Can add distinct values if need be later.
@@ -1520,5 +1524,7 @@ class Achievement:
         for actor in objs:
             bascenev1.timer(
                 out_time + 1.000,
-                babase.WeakCall(actor.handlemessage, bascenev1.DieMessage()),
+                babase.WeakCallStrict(
+                    actor.handlemessage, bascenev1.DieMessage()
+                ),
             )

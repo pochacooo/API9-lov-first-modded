@@ -7,8 +7,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, override
 
-from bauiv1lib.popup import PopupWindow
+from bacommon.analytics import ClassicAnalyticsEvent
 import bauiv1 as bui
+
+from bauiv1lib.popup import PopupWindow
 
 if TYPE_CHECKING:
     from typing import Any, Callable
@@ -361,7 +363,7 @@ class TournamentEntryWindow(PopupWindow):
         self._fg_state = bui.app.fg_state
         self._running_query = False
         self._update_timer = bui.AppTimer(
-            1.0, bui.WeakCall(self._update), repeat=True
+            1.0, bui.WeakCallStrict(self._update), repeat=True
         )
         self._update()
         self._restore_state()
@@ -433,7 +435,9 @@ class TournamentEntryWindow(PopupWindow):
                         else 'retry entry window'
                     )
                 },
-                callback=bui.WeakCall(self._on_tournament_query_response),
+                callback=bui.WeakCallPartial(
+                    self._on_tournament_query_response
+                ),
             )
             self._last_query_time = bui.apptime()
             self._running_query = True
@@ -587,6 +591,13 @@ class TournamentEntryWindow(PopupWindow):
             return
         self._launched = True
         launched = False
+
+        bui.app.analytics.submit_event(
+            ClassicAnalyticsEvent(
+                ClassicAnalyticsEvent.EventType.START_TOURNEY_COOP_SESSION,
+                extra=self._tournament_info.get('game'),
+            )
+        )
 
         # If they gave us an existing, non-consistent practice activity,
         # just restart it.
@@ -751,7 +762,7 @@ class TournamentEntryWindow(PopupWindow):
             assert bui.app.plus is not None
             bui.app.plus.ads.show_ad_2(
                 'tournament_entry',
-                on_completion_call=bui.WeakCall(self._on_ad_complete),
+                on_completion_call=bui.WeakCallPartial(self._on_ad_complete),
             )
 
     def _on_practice_press(self) -> None:

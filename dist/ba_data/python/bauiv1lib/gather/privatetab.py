@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, cast, override
 
 from efro.error import CommunicationError
 from efro.dataclassio import dataclass_from_dict, dataclass_to_dict
+from bacommon.analytics import ClassicAnalyticsEvent
 import bacommon.cloud
 from bacommon.net import (
     PrivateHostingState,
@@ -63,7 +64,7 @@ class PrivateGatherTab(GatherTab):
         self._state: State = State()
         self._last_datacode_refresh_time: float | None = None
         self._hostingstate = PrivateHostingState()
-        self._v2state: bacommon.bs.PrivatePartyResponse | None = None
+        self._v2state: bacommon.classic.PrivatePartyResponse | None = None
         self._join_sub_tab_text: bui.Widget | None = None
         self._host_sub_tab_text: bui.Widget | None = None
         self._update_timer: bui.AppTimer | None = None
@@ -165,7 +166,7 @@ class PrivateGatherTab(GatherTab):
         )
 
         self._update_timer = bui.AppTimer(
-            1.0, bui.WeakCall(self._update), repeat=True
+            1.0, bui.WeakCallStrict(self._update), repeat=True
         )
 
         # Prevent taking any action until we've updated our state.
@@ -322,7 +323,7 @@ class PrivateGatherTab(GatherTab):
                                 'type': 'PRIVATE_PARTY_QUERY',
                                 'expire_time': time.time() + 20,
                             },
-                            callback=bui.WeakCall(
+                            callback=bui.WeakCallPartial(
                                 self._idle_hosting_state_response
                             ),
                         )
@@ -341,7 +342,7 @@ class PrivateGatherTab(GatherTab):
                     if plus.accounts.primary is not None:
                         with plus.accounts.primary:
                             plus.cloud.send_message_cb(
-                                bacommon.bs.PrivatePartyMessage(
+                                bacommon.classic.PrivatePartyMessage(
                                     need_datacode=(
                                         self._last_datacode_refresh_time is None
                                         or time.monotonic()
@@ -349,7 +350,7 @@ class PrivateGatherTab(GatherTab):
                                         > 30.0
                                     )
                                 ),
-                                on_response=bui.WeakCall(
+                                on_response=bui.WeakCallPartial(
                                     self._on_private_party_query_response
                                 ),
                             )
@@ -357,7 +358,7 @@ class PrivateGatherTab(GatherTab):
                     self._last_v2_state_query_time = now
 
     def _on_private_party_query_response(
-        self, response: bacommon.bs.PrivatePartyResponse | Exception
+        self, response: bacommon.classic.PrivatePartyResponse | Exception
     ) -> None:
         if isinstance(response, Exception):
             self._debug_server_comm('got pp v2 state response (err)')
@@ -948,6 +949,13 @@ class PrivateGatherTab(GatherTab):
             )
 
     def _connect_to_party_code(self, code: str) -> None:
+
+        bui.app.analytics.submit_event(
+            ClassicAnalyticsEvent(
+                ClassicAnalyticsEvent.EventType.JOIN_PRIVATE_PARTY
+            )
+        )
+
         # Ignore attempted followup sends for a few seconds (this will
         # reset if we get a response).
         plus = bui.app.plus
@@ -971,7 +979,7 @@ class PrivateGatherTab(GatherTab):
                 'expire_time': time.time() + 20,
                 'code': code,
             },
-            callback=bui.WeakCall(self._connect_response),
+            callback=bui.WeakCallPartial(self._connect_response),
         )
         plus.run_v1_account_transactions()
 
@@ -1029,7 +1037,7 @@ class PrivateGatherTab(GatherTab):
                     'expire_time': time.time() + 20,
                     'datacode': self._v2state.datacode,
                 },
-                callback=bui.WeakCall(self._hosting_state_response),
+                callback=bui.WeakCallPartial(self._hosting_state_response),
             )
             plus.run_v1_account_transactions()
 
@@ -1040,7 +1048,7 @@ class PrivateGatherTab(GatherTab):
                     'type': 'PRIVATE_PARTY_STOP',
                     'expire_time': time.time() + 20,
                 },
-                callback=bui.WeakCall(self._hosting_state_response),
+                callback=bui.WeakCallPartial(self._hosting_state_response),
             )
             plus.run_v1_account_transactions()
         bui.getsound('click01').play()

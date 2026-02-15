@@ -52,7 +52,7 @@ class TournamentButton:
             label='',
             button_type='square',
             autoselect=True,
-            on_activate_call=bui.WeakCall(self._pressed),
+            on_activate_call=bui.WeakCallStrict(self._pressed),
         )
         bui.widget(
             edit=btn,
@@ -322,7 +322,7 @@ class TournamentButton:
             selectable=True,
             click_activate=True,
             autoselect=True,
-            on_activate_call=bui.WeakCall(self._show_leader),
+            on_activate_call=bui.WeakCallStrict(self._show_leader),
             size=(170 / 1.4, 40),
             h_align='center',
             text='-',
@@ -362,7 +362,7 @@ class TournamentButton:
             autoselect=True,
             up_widget=self.current_leader_name_text,
             text_scale=0.6,
-            on_activate_call=bui.WeakCall(self._show_scores),
+            on_activate_call=bui.WeakCallStrict(self._show_scores),
         )
         # We handle reselection manually for these so no ids.
         bui.widget(edit=self.more_scores_button, allow_preserve_selection=False)
@@ -411,7 +411,7 @@ class TournamentButton:
             flatness=1.0,
         )
         self._lock_update_timer = bui.AppTimer(
-            1.03, bui.WeakCall(self._update_lock_state), repeat=True
+            1.03, bui.WeakCallStrict(self._update_lock_state), repeat=True
         )
 
     def _pressed(self) -> None:
@@ -510,7 +510,7 @@ class TournamentButton:
         x_offs2c = x_offs2 + 50
 
         # Fetch prize range and trophy strings.
-        (pr1, pv1, pr2, pv2, pr3, pv3) = classic.get_tournament_prize_strings(
+        pr1, pv1, pr2, pv2, pr3, pv3 = classic.get_tournament_prize_strings(
             entry, include_tickets=False
         )
 

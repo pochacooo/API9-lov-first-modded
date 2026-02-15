@@ -38,6 +38,8 @@ from babase import (
     asset_loads_allowed,
     balog,
     Call,
+    CallPartial,
+    CallStrict,
     DevConsoleButtonDef,
     DevConsoleTab,
     DevConsoleTabEntry,
@@ -117,6 +119,8 @@ from babase import (
     unlock_all_input,
     utc_now_cloud,
     WeakCall,
+    WeakCallPartial,
+    WeakCallStrict,
     workspaces_in_use,
 )
 
@@ -139,7 +143,6 @@ from _bauiv1 import (
     root_ui_resume_updates,
     rowwidget,
     scrollwidget,
-    set_party_window_open,
     spinnerwidget,
     Sound,
     Texture,
@@ -149,11 +152,11 @@ from _bauiv1 import (
     widget,
     widget_by_id,
 )
-from bauiv1._cloudui import show_cloud_ui_window
 from bauiv1._keyboard import Keyboard
 from bauiv1._uitypes import (
     uicleanupcheck,
     RootUIUpdatePause,
+    UIOpenState,
 )
 from bauiv1._appsubsystem import UIV1AppSubsystem
 from bauiv1._window import (
@@ -189,6 +192,8 @@ __all__ = [
     'BasicMainWindowState',
     'buttonwidget',
     'Call',
+    'CallPartial',
+    'CallStrict',
     'DevConsoleButtonDef',
     'DevConsoleTab',
     'DevConsoleTabEntry',
@@ -277,9 +282,7 @@ __all__ = [
     'scrollwidget',
     'set_analytics_screen',
     'set_low_level_config_value',
-    'set_party_window_open',
     'set_main_ui_input_device',
-    'show_cloud_ui_window',
     'shutdown_suppress_begin',
     'shutdown_suppress_end',
     'Sound',
@@ -294,11 +297,14 @@ __all__ = [
     'uibounds',
     'uicleanupcheck',
     'uilog',
+    'UIOpenState',
     'UIScale',
     'UIV1AppSubsystem',
     'unlock_all_input',
     'utc_now_cloud',
     'WeakCall',
+    'WeakCallPartial',
+    'WeakCallStrict',
     'widget',
     'widget_by_id',
     'Widget',
