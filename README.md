@@ -1,6 +1,6 @@
 # Bombsquad-Ballistica-Modded-Server
 
-Modded server scripts to host ballistica (BombSquad) server. Running on BS1.7.41 (API 9)
+Modded server scripts to host ballistica (BombSquad) server. Running on BS1.7.53 (API 9)
 
 ``
 Migrated from API 7 TO API 9 , this might be unstable and missing some features. Use API 7 from this tag
