@@ -162,6 +162,20 @@ def utc_this_minute() -> datetime.datetime:
     )
 
 
+def utc_this_second() -> datetime.datetime:
+    """Get offset-aware beginning of current second in the utc time zone."""
+    now = datetime.datetime.now(datetime.UTC)
+    return datetime.datetime(
+        year=now.year,
+        month=now.month,
+        day=now.day,
+        hour=now.hour,
+        minute=now.minute,
+        second=now.second,
+        tzinfo=now.tzinfo,
+    )
+
+
 def empty_weakref[T](objtype: type[T]) -> weakref.ref[T]:
     """Return an invalidated weak-reference for the specified type."""
     # At runtime, all weakrefs are the same; our type arg is just
@@ -348,36 +362,39 @@ def dispatchmethod[ArgT, RetT](
     """
     from functools import singledispatch, update_wrapper
 
-    origwrapper: Any = singledispatch(func)
-
-    # Pull this out so hopefully origwrapper can die,
-    # otherwise we reference origwrapper in our wrapper.
-    dispatch = origwrapper.dispatch
-
-    # All we do here is recreate the end of functools.singledispatch
-    # where it returns a wrapper except instead of the wrapper using the
-    # first arg to the function ours uses the second (to skip 'self').
-    # This was made against Python 3.7; we should probably check up on
-    # this in later versions in case anything has changed.
-    # (or hopefully they'll add this functionality to their version)
-    # NOTE: sounds like we can use functools singledispatchmethod in 3.8
-    def wrapper(*args: Any, **kw: Any) -> Any:
-        if not args or len(args) < 2:
-            raise TypeError(
-                f'{funcname} requires at least ' '2 positional arguments'
-            )
-
-        return dispatch(args[1].__class__)(*args, **kw)
-
-    funcname = getattr(func, '__name__', 'dispatchmethod method')
-    wrapper.register = origwrapper.register  # type: ignore
-    wrapper.dispatch = dispatch  # type: ignore
-    wrapper.registry = origwrapper.registry  # type: ignore
     # pylint: disable=protected-access
-    wrapper._clear_cache = origwrapper._clear_cache  # type: ignore
-    update_wrapper(wrapper, func)
-    # pylint: enable=protected-access
-    return cast(DispatchMethodWrapper, wrapper)
+    # pylint: disable=no-else-return
+
+    if TYPE_CHECKING:
+        return cast(DispatchMethodWrapper, None)
+    else:
+        origwrapper: Any = singledispatch(func)
+
+        # Pull this out so hopefully origwrapper can die,
+        # otherwise we reference origwrapper in our wrapper.
+        dispatch = origwrapper.dispatch
+
+        # All we do here is recreate the end of functools.singledispatch
+        # where it returns a wrapper except instead of the wrapper using the
+        # first arg to the function ours uses the second (to skip 'self').
+        # This was made against Python 3.7; we should probably check up on
+        # this in later versions in case anything has changed.
+        # (or hopefully they'll add this functionality to their version)
+        # NOTE: sounds like we can use functools singledispatchmethod in 3.8
+        def wrapper(*args: Any, **kw: Any) -> Any:
+            if not args or len(args) < 2:
+                raise TypeError(
+                    f'{funcname} requires at least ' '2 positional arguments'
+                )
+            return dispatch(args[1].__class__)(*args, **kw)
+
+        funcname = getattr(func, '__name__', 'dispatchmethod method')
+        wrapper.register = origwrapper.register
+        wrapper.dispatch = dispatch
+        wrapper.registry = origwrapper.registry
+        wrapper._clear_cache = origwrapper._clear_cache
+        update_wrapper(wrapper, func)
+        return cast(DispatchMethodWrapper, wrapper)
 
 
 def valuedispatch[ValT, RetT](
@@ -579,7 +596,7 @@ def asserttype_o[T](obj: Any, typ: type[T]) -> T | None:
     failures are not expected. Otherwise use checktype.
     """
     assert isinstance(typ, type), 'only actual types accepted'
-    assert isinstance(obj, (typ, type(None)))
+    assert isinstance(obj, typ | None)
     return obj
 
 
@@ -602,7 +619,7 @@ def checktype_o[T](obj: Any, typ: type[T]) -> T | None:
     on failure. Use asserttype for more efficient (but less safe) equivalent.
     """
     assert isinstance(typ, type), 'only actual types accepted'
-    if not isinstance(obj, (typ, type(None))):
+    if not isinstance(obj, typ | None):
         raise TypeError(f'Expected a {typ} or None; got a {type(obj)}.')
     return obj
 
@@ -628,7 +645,7 @@ def warntype_o[T](obj: Any, typ: type[T]) -> T | None:
     not what is expected.
     """
     assert isinstance(typ, type), 'only actual types accepted'
-    if not isinstance(obj, (typ, type(None))):
+    if not isinstance(obj, typ | None):
         import logging
 
         logging.warning(
@@ -823,7 +840,10 @@ def set_canonical_module_names(module_globals: dict[str, Any]) -> None:
 
 
 def timedelta_str(
-    timeval: datetime.timedelta | float, *, maxparts: int = 2, decimals: int = 0
+    timeval: datetime.timedelta | float | int,
+    *,
+    maxparts: int = 2,
+    decimals: int = 0,
 ) -> str:
     """Return a simple human readable time string for a length of time.
 
@@ -840,7 +860,7 @@ def timedelta_str(
     """
     # pylint: disable=too-many-locals
 
-    if isinstance(timeval, float):
+    if isinstance(timeval, float | int):
         timevalfin = datetime.timedelta(seconds=timeval)
     else:
         timevalfin = timeval
@@ -1008,7 +1028,8 @@ def weighted_choice[T](*args: tuple[T, float]) -> T:
     items: tuple[T]
     weights: tuple[float]
     items, weights = zip(*args)
-    return random.choices(items, weights=weights)[0]
+    val: T = random.choices(items, weights=weights)[0]
+    return val
 
 
 def prune_empty_dirs(prunedir: str) -> None:
@@ -1068,3 +1089,17 @@ def strip_exception_tracebacks(exc: BaseException) -> None:
         cause = getattr(e, '__cause__', None)
         if cause is not None:
             stack.append(cause)
+
+
+def secure_id() -> str:
+    """Generate a 20 char cryptographically secure string.
+
+    Basically what firestore does for its random document ids.
+    If its good enough for firestore its good enough for us.
+    """
+    import secrets
+    import string
+
+    alphabet = string.ascii_letters + string.digits  # 62 chars
+
+    return ''.join(secrets.choice(alphabet) for _ in range(20))

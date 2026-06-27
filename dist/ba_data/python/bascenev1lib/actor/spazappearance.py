@@ -1,6 +1,7 @@
 # Released under the MIT License. See LICENSE for details.
 #
 """Appearance functionality for spazzes."""
+
 from __future__ import annotations
 
 import bascenev1 as bs
@@ -818,9 +819,9 @@ def register_appearances() -> None:
     t.death_sounds = ['oldLadyDeath']
     t.pickup_sounds = old_lady_sounds
     t.fall_sounds = ['oldLadyFall']
-    t.style = 'spaz'
-    t.default_color = (0.3, 0.5, 0.8)
-    t.default_highlight = (1, 0, 0)
+    t.style = 'bones'
+    t.default_color = (0.2, 1.0, 1.0)
+    t.default_highlight = (0.5, 0.25, 1.0)
 
     # Gladiator ###################################
     t = Appearance('Gladiator')

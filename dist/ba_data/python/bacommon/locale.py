@@ -71,6 +71,7 @@ class Locale(Enum):
     VENETIAN = 'venetn'
     VIETNAMESE = 'viet'
     KAZAKH = 'kazk'
+    JAPANESE = 'jpn'
 
     # Note: We use if-statement chains here so we can use assert_never()
     # to ensure we cover all existing values. But we cache lookups so
@@ -87,7 +88,7 @@ class Locale(Enum):
         # pylint: disable=too-many-branches
         # pylint: disable=too-many-return-statements
 
-        cls = type(self)
+        cls = Locale
 
         if self is cls.ENGLISH:
             return 'English'
@@ -175,6 +176,8 @@ class Locale(Enum):
             return 'Vietnamese'
         if self is cls.KAZAKH:
             return 'Kazakh'
+        if self is cls.JAPANESE:
+            return 'Japanese'
 
         # Make sure we've covered all cases.
         assert_never(self)
@@ -206,7 +209,7 @@ class Locale(Enum):
         # pylint: disable=too-many-branches
         # pylint: disable=too-many-return-statements
 
-        cls = type(self)
+        cls = Locale
 
         if self is cls.ENGLISH:
             return 'English'
@@ -296,6 +299,8 @@ class Locale(Enum):
             return 'Vietnamese'
         if self is cls.KAZAKH:
             return 'Kazakh'
+        if self is cls.JAPANESE:
+            return 'Japanese'
 
         # Make sure we've covered all cases.
         assert_never(self)
@@ -306,7 +311,7 @@ class Locale(Enum):
         # pylint: disable=too-many-return-statements
         # pylint: disable=too-many-branches
 
-        cls = type(self)
+        cls = Locale
         R = LocaleResolved
 
         if self is cls.ENGLISH:
@@ -389,6 +394,8 @@ class Locale(Enum):
             return R.VIETNAMESE
         if self is cls.KAZAKH:
             return R.KAZAKH
+        if self is cls.JAPANESE:
+            return R.JAPANESE
 
         # Make sure we're covering all cases.
         assert_never(self)
@@ -444,6 +451,7 @@ class LocaleResolved(Enum):
     VENETIAN = 'venetn'
     VIETNAMESE = 'viet'
     KAZAKH = 'kazk'
+    JAPANESE = 'jpn'
 
     # Note: We use if-statement chains here so we can use assert_never()
     # to ensure we cover all existing values. But we cache lookups so
@@ -464,7 +472,7 @@ class LocaleResolved(Enum):
         # pylint: disable=too-many-return-statements
         # pylint: disable=too-many-branches
 
-        cls = type(self)
+        cls = LocaleResolved
 
         if self is cls.ENGLISH:
             return Locale.ENGLISH
@@ -546,6 +554,8 @@ class LocaleResolved(Enum):
             return Locale.VIETNAMESE
         if self is cls.KAZAKH:
             return Locale.KAZAKH
+        if self is cls.JAPANESE:
+            return Locale.JAPANESE
 
         # Make sure we're covering all cases.
         assert_never(self)
@@ -561,7 +571,7 @@ class LocaleResolved(Enum):
         """
         # pylint: disable=too-many-branches
         # pylint: disable=too-many-statements
-        cls = type(self)
+        cls = LocaleResolved
 
         val: str | None = None
 
@@ -647,6 +657,8 @@ class LocaleResolved(Enum):
             val = 'vi'
         elif self is cls.KAZAKH:
             val = 'kk'
+        elif self is cls.JAPANESE:
+            val = 'ja'
         else:
             # Make sure we cover all cases.
             assert_never(self)
@@ -668,9 +680,9 @@ class LocaleResolved(Enum):
 
         return val
 
-    @classmethod
+    @staticmethod
     @lru_cache(maxsize=128)
-    def from_tag(cls, tag: str) -> LocaleResolved:
+    def from_tag(tag: str) -> LocaleResolved:
         """Return a locale for a given string tag.
 
         Tags can be provided in BCP 47 form ('en-US') or POSIX locale
@@ -679,6 +691,8 @@ class LocaleResolved(Enum):
         # pylint: disable=too-many-branches
         # pylint: disable=too-many-statements
         # pylint: disable=too-many-return-statements
+
+        cls = LocaleResolved
 
         # POSIX locale strings can contain a dot followed by an
         # encoding. Strip that off.
@@ -838,6 +852,8 @@ class LocaleResolved(Enum):
             return cls.VIETNAMESE
         if lang == 'kk':
             return cls.KAZAKH
+        if lang == 'ja':
+            return cls.JAPANESE
 
         # Make noise if we come across something unexpected so we can
         # add it.

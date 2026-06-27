@@ -13,8 +13,6 @@ import bauiv1 as bui
 if TYPE_CHECKING:
     from typing import Any
 
-REQUIRE_PRO = False
-
 
 class SoundtrackBrowserWindow(bui.MainWindow):
     """Window for browsing soundtracks."""
@@ -225,7 +223,7 @@ class SoundtrackBrowserWindow(bui.MainWindow):
 
         # Keep our lock images up to date/etc.
         self._update_timer = bui.AppTimer(
-            1.0, bui.WeakCall(self._update), repeat=True
+            1.0, bui.WeakCallStrict(self._update), repeat=True
         )
         self._update()
 
@@ -284,14 +282,8 @@ class SoundtrackBrowserWindow(bui.MainWindow):
         self._save_state()
 
     def _update(self) -> None:
-        have_pro = (
-            bui.app.classic is None
-            or bui.app.classic.accounts.have_pro_options()
-        )
         for lock in self._lock_images:
-            bui.imagewidget(
-                edit=lock, opacity=0.0 if (have_pro or not REQUIRE_PRO) else 1.0
-            )
+            bui.imagewidget(edit=lock, opacity=0.0 if bool(True) else 1.0)
 
     def _do_delete_soundtrack(self) -> None:
         cfg = bui.app.config
@@ -309,15 +301,8 @@ class SoundtrackBrowserWindow(bui.MainWindow):
 
     def _delete_soundtrack(self) -> None:
         # pylint: disable=cyclic-import
-        from bauiv1lib.purchase import PurchaseWindow
         from bauiv1lib.confirm import ConfirmWindow
 
-        if REQUIRE_PRO and (
-            bui.app.classic is not None
-            and not bui.app.classic.accounts.have_pro_options()
-        ):
-            PurchaseWindow(items=['pro'])
-            return
         if self._selected_soundtrack is None:
             return
         if self._selected_soundtrack == '__default__':
@@ -338,15 +323,7 @@ class SoundtrackBrowserWindow(bui.MainWindow):
             )
 
     def _duplicate_soundtrack(self) -> None:
-        # pylint: disable=cyclic-import
-        from bauiv1lib.purchase import PurchaseWindow
 
-        if REQUIRE_PRO and (
-            bui.app.classic is not None
-            and not bui.app.classic.accounts.have_pro_options()
-        ):
-            PurchaseWindow(items=['pro'])
-            return
         cfg = bui.app.config
         cfg.setdefault('Soundtracks', {})
 
@@ -408,32 +385,14 @@ class SoundtrackBrowserWindow(bui.MainWindow):
             )
 
     def _edit_soundtrack_with_sound(self) -> None:
-        # pylint: disable=cyclic-import
-        from bauiv1lib.purchase import PurchaseWindow
-
-        if REQUIRE_PRO and (
-            bui.app.classic is not None
-            and not bui.app.classic.accounts.have_pro_options()
-        ):
-            PurchaseWindow(items=['pro'])
-            return
         bui.getsound('swish').play()
         self._edit_soundtrack()
 
     def _edit_soundtrack(self) -> None:
-        # pylint: disable=cyclic-import
-        from bauiv1lib.purchase import PurchaseWindow
         from bauiv1lib.soundtrack.edit import SoundtrackEditWindow
 
         # no-op if we don't have control.
         if not self.main_window_has_control():
-            return
-
-        if REQUIRE_PRO and (
-            bui.app.classic is not None
-            and not bui.app.classic.accounts.have_pro_options()
-        ):
-            PurchaseWindow(items=['pro'])
             return
 
         if self._selected_soundtrack is None:
@@ -489,7 +448,7 @@ class SoundtrackBrowserWindow(bui.MainWindow):
                 v_align='center',
                 maxwidth=self._width - 110,
                 always_highlight=True,
-                on_select_call=bui.WeakCall(self._select, pname, index),
+                on_select_call=bui.WeakCallStrict(self._select, pname, index),
                 on_activate_call=self._edit_soundtrack_with_sound,
                 selectable=True,
             )
@@ -530,7 +489,7 @@ class SoundtrackBrowserWindow(bui.MainWindow):
         # Eww need to run this in a timer so it happens after our select
         # callbacks. With a small-enough time sometimes it happens before
         # anyway. Ew. need a way to just schedule a callable i guess.
-        bui.apptimer(0.1, bui.WeakCall(self._set_allow_changing))
+        bui.apptimer(0.1, bui.WeakCallStrict(self._set_allow_changing))
 
     def _set_allow_changing(self) -> None:
         self._allow_changing_soundtracks = True
@@ -539,19 +498,10 @@ class SoundtrackBrowserWindow(bui.MainWindow):
         self._select(self._selected_soundtrack, self._selected_soundtrack_index)
 
     def _new_soundtrack(self) -> None:
-        # pylint: disable=cyclic-import
-        from bauiv1lib.purchase import PurchaseWindow
         from bauiv1lib.soundtrack.edit import SoundtrackEditWindow
 
         # no-op if we're not in control.
         if not self.main_window_has_control():
-            return
-
-        if REQUIRE_PRO and (
-            bui.app.classic is not None
-            and not bui.app.classic.accounts.have_pro_options()
-        ):
-            PurchaseWindow(items=['pro'])
             return
 
         self.main_window_replace(
