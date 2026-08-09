@@ -58,7 +58,7 @@
     "webhookURL": "https://discord.com/api/webhooks/82649239/e7s0zyBJIuczXL7_CGSO5WM"
   },
   "discordbot": {
-    "enable": true,
+    "enable": false,
     "liveChat": true,
     "liveStatsChannelID": 1519626483625099294,
     "logsChannelID": 1519626550801334272,
