@@ -3,32 +3,30 @@
   "ChatCommands": {
     "BrodcastCommand": true
   },
-  "HostDeviceName": "v1.4",
-  "HostName": "BCSv2",
+  "HostDeviceName": "cutie",
+  "HostName": "Cutie",
   "KickVoteMsgType": "chat",
   "ScoreScreenAnnouncement": {
     "enable": true,
     "msg": [
-      "click stats button to join discord",
-      "watch hey smoothy youtube channel",
-      "downlaod new mods from discord"
+      "click stats button to join discord"
     ]
   },
   "ShowKickVoteStarterName": true,
   "StumbledScoreScreen": true,
   "WarnCooldownMinutes": 30,
   "afk_remover": {
-    "enable": true,
+    "enable": false,
     "ingame_idle_time_in_secs": 60,
-    "kick_idle_from_lobby": true,
+    "kick_idle_from_lobby": false,
     "lobby_idle_time_in_secs": 10
   },
-  "afterWarnKickMsg": "Enough warnings, Goodbye have a nice day :)",
+  "afterWarnKickMsg": "U deserve better!",
   "allowInGameChat": true,
   "allowTeamChat": true,
   "allowVotes": true,
   "autoNightMode": {
-    "enable": true,
+    "enable": false,
     "endTime": "06:00",
     "fireflies": true,
     "fireflies_random_color": false,
@@ -36,7 +34,7 @@
   },
   "autoTeamBalance": true,
   "ballistica_web": {
-    "enable": true,
+    "enable": false,
     "server_password": "my_secerT_password_very_hard",
     "discord_link": "https://discord.gg/ucyaesh"
   },
@@ -44,9 +42,9 @@
     "enable": true
   },
   "colorful_explosions": {
-    "enable": true
+    "enable": false
   },
-  "colorfullMap": true,
+  "colorfullMap": false,
   "contributeData": true,
   "coopModeWithLessPlayers": {
     "enable": false,
@@ -60,30 +58,20 @@
     "webhookURL": "https://discord.com/api/webhooks/82649239/e7s0zyBJIuczXL7_CGSO5WM"
   },
   "discordbot": {
-    "enable": false,
+    "enable": true,
     "liveChat": true,
-    "liveStatsChannelID": 925440043672285200,
-    "logsChannelID": 925440079843958800,
-    "token": "<secret-token-here>"
+    "liveStatsChannelID": 1519626483625099294,
+    "logsChannelID": 1519626550801334272,
+    "token": "MTUxMTAxNjM2MzA0MzU5MDE0NA.GfcuRC.G3C_D45hb6l14MVsffV1a4qlM2s4W7SmzwqN7E"
   },
   "elPatronPowerups": {
     "Quantity": {
       "Curse": 1,
-      "Fire Bombs": 3,
-      "Fly Bombs": 3,
-      "Goodbye": 2,
-      "Healing Damage": 1,
       "Health": 1,
       "Ice Bombs": 3,
-      "Ice Man": 1,
       "Impact Bombs": 3,
-      "Impairment Bombs": 2,
       "Mine Bombs": 2,
-      "Punch": 3,
-      "Shield": 2,
-      "Speed": 2,
       "Sticky Bombs": 3,
-      "Tank Shield": 1,
       "Triple": 3
     },
     "enable": false,
@@ -94,54 +82,44 @@
       "Powerup Scale": 1,
       "Powerup Style": "Auto",
       "Powerup Time": false,
-      "Powerup With Shield": true,
+      "Powerup With Shield": false,
       "Powerups": {
         "Curse": 1,
-        "Fire Bombs": 3,
-        "Fly Bombs": 3,
-        "Goodbye": 2,
-        "Healing Damage": 1,
         "Health": 1,
         "Ice Bombs": 3,
-        "Ice Man": 1,
         "Impact Bombs": 3,
-        "Impairment Bombs": 2,
         "Mine Bombs": 2,
-        "Punch": 3,
-        "Shield": 2,
-        "Speed": 2,
         "Sticky Bombs": 3,
-        "Tank Shield": 1,
         "Triple": 3
       },
       "Tank Shield PTG": 96
     }
   },
-  "enableHitTexts": true,
+  "enableHitTexts": false,
   "enableTagAnimation": true,
-  "enableTop5effects": true,
+  "enableTop5effects": false,
   "enableeffects": true,
   "enablehptag": true,
   "enablerank": true,
   "enablestats": true,
   "enabletags": true,
-  "firstTimeJoinMsg": "Welcome to the server,we r saving all your account details and chats",
+  "firstTimeJoinMsg": "Melcow humans!...",
   "leaderboard": {
     "barsBehindName": true,
     "enable": true
   },
   "maxAccountPerIP": 3,
   "maxPlayersPerDevice": 2,
-  "maxWarnCount": 2,
+  "maxWarnCount": 10,
   "mikirogQuickTurn": {
     "enable": false
   },
-  "minAgeToChatInHours": 78,
-  "minAgeToJoinInHours": 24,
+  "minAgeToChatInHours": 0,
+  "minAgeToJoinInHours": 0,
   "newResultBoard": true,
   "playermod": {
     "default_bomb": "normal",
-    "default_bomb_count": 1,
+    "default_bomb_count": 2,
     "default_boxing_gloves": true,
     "default_shield": false
   },
@@ -154,11 +132,11 @@
     "soccer": 412160,
     "team": 12345
   },
-  "regularWelcomeMsg": "Welcome Back",
+  "regularWelcomeMsg": "Ty for cumming back",
   "sameCharacterForTeam": false,
   "statsResetAfterDays": 31,
   "textonmap": {
-    "bottom left watermark": "Owner : <owner-name> \nEditor : <bablu>\nScripts : BCS1.7.51",
+    "bottom left watermark": "Owner : Nikhil.B🙂 , Mαηѕι...♡",
     "center highlights": {
       "color": [
         1,
@@ -166,14 +144,11 @@
         0
       ],
       "msg": [
-        "type end to start end vote",
-        "start msg with prefix .(dot) to send in game popup msg",
-        "start msg with prefix ,(comma) to send msg to teammates",
-        "BombSquad Community Server - BCS"
+        "type end to start end vote"
       ],
       "randomColor": true
     },
-    "top watermark": "Welcome to server \nIP @IP PORT @PORT"
+    "top watermark": "Welcome Shawties \ntouch some grass"
   },
   "useV2Account": false,
   "warnMsg": "WARNING !!!",
@@ -181,6 +156,6 @@
   "mfa" : {
     "enable": true,
     "enforce_for_all_players": false,
-    "enforce_for_accounts": [ "HeySmoothy", "test" ]
+    "enforce_for_accounts": [ "HeyShawties", "test" ]
   }
 }

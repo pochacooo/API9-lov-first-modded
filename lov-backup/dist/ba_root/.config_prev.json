@@ -103,7 +103,7 @@
    "Complete": false
   },
   "Team Player": {
-   "Complete": true
+   "Complete": false
   },
   "The Great Wall": {
    "Complete": false
@@ -126,54 +126,6 @@
  },
  "Auto Account State": "Server",
  "Auto Balance Teams": true,
- "Bear Coin": 0,
- "Bear Store": {
-  "Buy Firebombs": false,
-  "Buy Option": false,
-  "Buy Percentage": false,
-  "Promo Code": {
-   "B-0mB3RYT2z": [
-    true,
-    910
-   ],
-   "B-Asd14mON9G0D": [
-    true,
-    910
-   ],
-   "D-rAcK0cJ23": [
-    true,
-    910
-   ],
-   "E-Am54igO42Os": [
-    true,
-    600
-   ],
-   "E-M4uN3K34XB": [
-    true,
-    840
-   ],
-   "E-a27ZO6f3Y": [
-    true,
-    600
-   ],
-   "G-Am54igO42Os": [
-    true,
-    1100
-   ],
-   "P-tRo8nM8dZ": [
-    true,
-    2800
-   ],
-   "PM-731ClcAF": [
-    true,
-    50000
-   ],
-   "Y-tU2B3S": [
-    true,
-    500
-   ]
-  }
- },
  "Campaigns": {},
  "CloudVals": {
   "gct": [
@@ -183,76 +135,20 @@
    "asyncio.exceptions.CancelledError"
   ]
  },
- "Custom Team Colors": [
-  [
-   1.0,
-   0.5,
-   0.1
-  ],
-  [
-   1.0,
-   0.6,
-   0.65
-  ]
- ],
- "Custom Team Names": [
-  "Bunny",
-  "Honey"
- ],
- "Default Player Profiles": {
-  "Client Input Device #1": "__account__",
-  "Client Input Device #2": "__account__",
-  "Client Input Device #3": "KD",
-  "Client Input Device #4": "\u2654\u0442\u0454\u03c7",
-  "Client Input Device #5": "__account__",
-  "Client Input Device #6": "__account__",
-  "Client Input Device #7": "Jenn\u00e0 Ort\u00eag\u00e4",
-  "Client Input Device #8": "__account__",
-  "Client Input Device #9": "Babloo\u2603\ufe0f\u2603\ufe0f"
- },
  "FFA Series Length": 24,
- "Fleet Zone Ping Last Flush Time": 1786083854,
+ "Fleet Zone Ping Last Flush Time": 1786165938,
  "Fleet Zone Pings": {
   "prod": {
-   "delhi.v4": 18.961845216806097,
-   "hyderabad.v4": 13.920776728391207,
-   "mumbai.v4": 0.8663279365884081
+   "delhi.v4": 19.44931619319497,
+   "hyderabad.v4": 14.199317817302568,
+   "mumbai.v4": 0.884124272615799
   }
  },
  "Free-for-All Playlist Randomize": true,
  "Free-for-All Playlist Selection": "__default__",
  "Free-for-All Playlists": {},
- "Idle Exit Minutes": 20.0,
- "Local Account Name": "Server26222427",
- "PPM Settings": {
-  "Healing Damage PTG": 72,
-  "Powers Gravity": true,
-  "Powerup Name": true,
-  "Powerup Scale": 1.0,
-  "Powerup Style": "Auto",
-  "Powerup Time": false,
-  "Powerup With Shield": true,
-  "Powerups": {
-   "Curse": 1,
-   "Fire Bombs": 3,
-   "Fly Bombs": 3,
-   "Goodbye": 2,
-   "Healing Damage": 1,
-   "Health": 1,
-   "Ice Bombs": 3,
-   "Ice Man": 1,
-   "Impact Bombs": 3,
-   "Impairment Bombs": 2,
-   "Mine Bombs": 2,
-   "Punch": 3,
-   "Shield": 2,
-   "Speed": 2,
-   "Sticky Bombs": 3,
-   "Tank Shield": 1,
-   "Triple": 3
-  },
-  "Tank Shield PTG": 96
- },
+ "Idle Exit Minutes": null,
+ "Local Account Name": "Server26231816",
  "Player Profiles": {
   "__account__": {
    "character": "Spaz",
@@ -271,23 +167,14 @@
  "Plugins": {
   "custom_hooks.modSetup": {
    "enabled": true
-  },
-  "plugins.Init": {
-   "enabled": true
-  },
-  "plugins.auto_stunt.byHeySmoothy": {
-   "enabled": true
   }
  },
  "Port": 43210,
- "SceneV1 Host Protocol": 35,
  "Show Tutorial": false,
  "Signed In Last Session": false,
- "Team Tournament Playlist Randomize": true,
- "Team Tournament Playlist Selection": "luvie",
  "Team Tournament Playlists": {},
  "Teams Series Length": 7,
- "launchCount": 159,
+ "launchCount": 1,
  "lc14173": 1,
  "lc14292": 1
 }

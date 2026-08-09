@@ -62,9 +62,9 @@ class Spaz(bs.Actor):
 
     points_mult = 1
     curse_time: float | None = 5.0
-    default_bomb_count = 1
+    default_bomb_count = 2
     default_bomb_type = 'normal'
-    default_boxing_gloves = False
+    default_boxing_gloves = True
     default_shields = False
     default_hitpoints = 1000
 

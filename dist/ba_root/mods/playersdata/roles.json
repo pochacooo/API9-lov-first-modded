@@ -1,6 +1,6 @@
 {
-    "owner": {
-        "tag": "\\cowner\\c",
+    "um oka": {
+        "tag": "\u200e ",
         "tagcolor": [
             1,
             0.6,
@@ -10,46 +10,23 @@
             "ALL"
         ],
         "ids": [
-            "pb-IF48VWkBFQ",
-            "pb-JiNJARBaXEFBVF9HFkNXXF1EF0ZaRlZE",
-            "pb-IF4TVWwZUQ==",
-            "pb-IF4SVW9dEg==",
-            "pb-IF5XUm9eAg=="
+            "pb-IF5SXncGHQ=="
         ]
     },
-    "admin": {
-        "tag": "\ue043admin\ue043",
+    "\u200e owner\u200e ": {
+        "tag": "\ue043owner\ue043",
         "tagcolor": [
             1,
             1,
             1
         ],
         "commands": [
-            "createrole"
+            "ALL"
         ],
         "ids": [
-            "pb-IF4TVWwZUQ=="
+            "pb-IF4SURA-Uw==",
+            "pb-IF4mUms_Lw=="
         ]
-    },
-    "vip": {
-        "tag": "vip",
-        "tagcolor": [
-            1,
-            1,
-            1
-        ],
-        "commands": [],
-        "ids": []
-    },
-    "smoothy": {
-        "tag": "smoothy",
-        "tagcolor": [
-            1,
-            1,
-            1
-        ],
-        "commands": [],
-        "ids": []
     },
     "pros": {
         "tag": "pros",
@@ -70,8 +47,11 @@
         ],
         "commands": [],
         "ids": [
-            "pb-IF4VAk4a",
-            "pb-IF4RU2ECAg=="
+            "pb-IF5SXncGHQ==",
+            "pb-IF4xFE4J",
+            "pb-IF4NXnEdJg==",
+            "pb-IF4SURA-Uw==",
+            "pb-IF4sXnIvIA=="
         ]
     },
     "bypass-warn": {
@@ -82,12 +62,6 @@
             1
         ],
         "commands": [],
-        "ids": [
-            "pb-IF5XUm9eAg==",
-            "pb-IF43VUwlAg==",
-            "pb-IF4iVUc5Cg==",
-            "pb-IF4vNnMJ",
-            "pb-IF4TVWwZUQ=="
-        ]
+        "ids": []
     }
 }

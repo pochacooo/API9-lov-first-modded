@@ -33,9 +33,9 @@ def push_log(msg):
 
 
 def init():
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     loop.create_task(client.start(token))
-
     Thread(target=loop.run_forever).start()
 
 
@@ -66,8 +66,7 @@ async def verify_channel():
     global livestatsmsgs
     channel = client.get_channel(liveStatsChannelID)
     botmsg_count = 0
-    msgs = await channel.history(limit=5).flatten()
-    for msg in msgs:
+    async for msg in channel.history(limit=5):
         if msg.author.id == client.user.id:
             botmsg_count += 1
             livestatsmsgs.append(msg)
@@ -146,7 +145,10 @@ def get_chats():
 
 class BsDataThread(object):
     def __init__(self):
-        self.refreshStats()
+        try:
+            self.refreshStats()
+        except Exception:
+            pass
         self.Timer = bs.AppTimer(8, babase.Call(self.refreshStats), repeat=True)
         # self.Timerr = bs.Timer( 10,babase.Call(self.refreshLeaderboard),timetype = babase.TimeType.REAL,repeat = True)
 
@@ -201,7 +203,10 @@ class BsDataThread(object):
         # system={'cpu':80,'ram':34}
         # stats['system']=system
         stats['roster'] = liveplayers
-        stats['chats'] = bs.get_chat_messages()
+        try:
+            stats['chats'] = bs.get_chat_messages()
+        except Exception:
+            pass
         stats['playlist'] = minigame
 
         # stats['teamInfo']=self.getTeamInfo()

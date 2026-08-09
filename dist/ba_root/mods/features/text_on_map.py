@@ -104,17 +104,19 @@ class textonmap:
 
     def restart_msg(self):
         if hasattr(_babase, 'restart_scheduled'):
-            _babase.get_foreground_host_activity().restart_msg = bs.newnode(
-                'text',
-                attrs={
-                    'text': "Server going to restart after this series.",
-                    'flatness': 1.0,
-                    'h_align': 'right',
-                    'v_attach': 'bottom',
-                    'h_attach': 'right',
-                    'scale': 0.5,
-                    'position': (-25, 54),
-                    'color': (1, 0.5, 0.7)
+            activity = babase.app.classic.get_foreground_host_activity()
+            if activity is not None:
+                activity.restart_msg = bs.newnode(
+                    'text',
+                    attrs={
+                        'text': "Ummm...serber hecked 😭",
+                        'flatness': 1.0,
+                        'h_align': 'right',
+                        'v_attach': 'bottom',
+                        'h_attach': 'right',
+                        'scale': 0.5,
+                        'position': (-25, 54),
+                        'color': (1, 0.5, 0.7)
                 })
 
     def top_message(self, text):
@@ -134,21 +136,21 @@ class textonmap:
             if setti["leaderboard"]["barsBehindName"]:
                 self.ss1 = bs.newnode('image', attrs={'scale': (300, 30),
                                                       'texture': bs.gettexture(
-                                                          'uiAtlas2'),
+                                                          'bar'),
                                                       'position': (0, -80),
                                                       'attach': 'topRight',
                                                       'opacity': 0.5,
                                                       'color': (0.7, 0.1, 0)})
                 self.ss1 = bs.newnode('image', attrs={'scale': (300, 30),
                                                       'texture': bs.gettexture(
-                                                          'uiAtlas2'),
+                                                          'bar'),
                                                       'position': (0, -115),
                                                       'attach': 'topRight',
                                                       'opacity': 0.5,
                                                       'color': (0.6, 0.6, 0.6)})
                 self.ss1 = bs.newnode('image', attrs={'scale': (300, 30),
                                                       'texture': bs.gettexture(
-                                                          'uiAtlas2'),
+                                                          'bar'),
                                                       'position': (0, -150),
                                                       'attach': 'topRight',
                                                       'opacity': 0.5,
